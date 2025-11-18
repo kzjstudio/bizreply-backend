@@ -2,22 +2,29 @@ import { getFirestore } from '../config/firebase.config.js';
 import { logger } from '../utils/logger.js';
 
 /**
- * Save a message to Firestore
+ * Save a message to Firestore (nested under business)
+ * Structure: businesses/{businessId}/messages/{messageId}
  */
 export const saveMessage = async (messageData) => {
   try {
     const db = getFirestore();
-    const messagesRef = db.collection('messages');
+    const { businessId, ...restData } = messageData;
     
+    // Messages are stored in subcollection under the business
+    const messagesRef = db
+      .collection('businesses')
+      .doc(businessId)
+      .collection('messages');
+
     const docRef = await messagesRef.add({
-      ...messageData,
+      ...restData,
       createdAt: new Date()
     });
 
-    logger.info(`💾 Message saved: ${docRef.id}`);
-    return { id: docRef.id, ...messageData };
+    logger.info(` Message saved: ${docRef.id} for business: ${businessId}`);
+    return { id: docRef.id, businessId, ...restData };
   } catch (error) {
-    logger.error('❌ Error saving message:', error);
+    logger.error(' Error saving message:', error);
     throw error;
   }
 };
@@ -28,10 +35,14 @@ export const saveMessage = async (messageData) => {
 export const getConversationHistory = async (businessId, customerPhone, limit = 10) => {
   try {
     const db = getFirestore();
-    const messagesRef = db.collection('messages');
     
+    // Query only within this businesss messages subcollection
+    const messagesRef = db
+      .collection('businesses')
+      .doc(businessId)
+      .collection('messages');
+
     const snapshot = await messagesRef
-      .where('businessId', '==', businessId)
       .where('from', '==', customerPhone)
       .orderBy('timestamp', 'desc')
       .limit(limit)
@@ -42,9 +53,9 @@ export const getConversationHistory = async (businessId, customerPhone, limit = 
       messages.push({ id: doc.id, ...doc.data() });
     });
 
-    return messages.reverse(); // Return in chronological order
+    return messages.reverse();
   } catch (error) {
-    logger.error('❌ Error getting conversation history:', error);
+    logger.error(' Error getting conversation history:', error);
     return [];
   }
 };
@@ -56,7 +67,7 @@ export const getBusinessByPhone = async (phoneNumberId) => {
   try {
     const db = getFirestore();
     const businessRef = db.collection('businesses');
-    
+
     const snapshot = await businessRef
       .where('phoneNumberId', '==', phoneNumberId)
       .limit(1)
@@ -69,7 +80,7 @@ export const getBusinessByPhone = async (phoneNumberId) => {
     const doc = snapshot.docs[0];
     return { id: doc.id, ...doc.data() };
   } catch (error) {
-    logger.error('❌ Error getting business by phone:', error);
+    logger.error(' Error getting business by phone:', error);
     return null;
   }
 };
@@ -81,17 +92,18 @@ export const createBusinessInDB = async (businessData) => {
   try {
     const db = getFirestore();
     const businessRef = db.collection('businesses');
-    
+
     const docRef = await businessRef.add({
       ...businessData,
+      messageCount: 0,
       createdAt: new Date(),
       updatedAt: new Date()
     });
 
-    logger.info(`💾 Business created: ${docRef.id}`);
+    logger.info(` Business created: ${docRef.id}`);
     return { id: docRef.id, ...businessData };
   } catch (error) {
-    logger.error('❌ Error creating business:', error);
+    logger.error(' Error creating business:', error);
     throw error;
   }
 };
@@ -103,14 +115,14 @@ export const getBusinessById = async (businessId) => {
   try {
     const db = getFirestore();
     const doc = await db.collection('businesses').doc(businessId).get();
-    
+
     if (!doc.exists) {
       return null;
     }
 
     return { id: doc.id, ...doc.data() };
   } catch (error) {
-    logger.error('❌ Error getting business:', error);
+    logger.error(' Error getting business:', error);
     throw error;
   }
 };
@@ -122,16 +134,16 @@ export const updateBusinessInDB = async (businessId, updateData) => {
   try {
     const db = getFirestore();
     const businessRef = db.collection('businesses').doc(businessId);
-    
+
     await businessRef.update({
       ...updateData,
       updatedAt: new Date()
     });
 
-    logger.info(`💾 Business updated: ${businessId}`);
+    logger.info(` Business updated: ${businessId}`);
     return { id: businessId, ...updateData };
   } catch (error) {
-    logger.error('❌ Error updating business:', error);
+    logger.error(' Error updating business:', error);
     throw error;
   }
 };
@@ -143,10 +155,10 @@ export const deleteBusinessInDB = async (businessId) => {
   try {
     const db = getFirestore();
     await db.collection('businesses').doc(businessId).delete();
-    
-    logger.info(`🗑️  Business deleted: ${businessId}`);
+
+    logger.info(`  Business deleted: ${businessId}`);
   } catch (error) {
-    logger.error('❌ Error deleting business:', error);
+    logger.error(' Error deleting business:', error);
     throw error;
   }
 };
@@ -158,7 +170,7 @@ export const getAllBusinesses = async () => {
   try {
     const db = getFirestore();
     const snapshot = await db.collection('businesses').get();
-    
+
     const businesses = [];
     snapshot.forEach(doc => {
       businesses.push({ id: doc.id, ...doc.data() });
@@ -166,7 +178,7 @@ export const getAllBusinesses = async () => {
 
     return businesses;
   } catch (error) {
-    logger.error('❌ Error getting all businesses:', error);
+    logger.error(' Error getting all businesses:', error);
     throw error;
   }
 };
