@@ -66,6 +66,7 @@ export const getConversationHistory = async (businessId, customerPhone, limit = 
 export const getBusinessByPhone = async (phoneNumberId) => {
   try {
     console.log('[DEBUG] Looking for business with phoneNumberId:', phoneNumberId);
+    console.log('[DEBUG] phoneNumberId type:', typeof phoneNumberId, 'length:', phoneNumberId.length);
     const db = getFirestore();
     const businessRef = db.collection('businesses');
 
@@ -79,6 +80,8 @@ export const getBusinessByPhone = async (phoneNumberId) => {
       const allBusinesses = await businessRef.limit(5).get();
       allBusinesses.forEach(doc => {
         console.log('[DEBUG] Business:', doc.id, 'phoneNumberId:', doc.data().phoneNumberId);
+          const storedId = doc.data().phoneNumberId;
+          console.log('[DEBUG] Stored type:', typeof storedId, 'length:', storedId?.length, 'match:', storedId === phoneNumberId);
       });
       return null;
     }
