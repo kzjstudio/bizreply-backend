@@ -51,7 +51,7 @@ export const handleWebhook = async (req, res) => {
       // Twilio webhook
       logger.info(' Detected Twilio webhook');
       parsedMessage = parseTwilioWebhook(body);
-      phoneNumberId = process.env.PHONE_NUMBER_ID || 'default'; // Use default for Twilio
+      phoneNumberId = process.env.TWILIO_WHATSAPP_NUMBER || '+14155238886'; // Twilio sandbox number
     } else if (body.object === 'whatsapp_business_account') {
       // Meta webhook
       logger.info(' Detected Meta webhook');
@@ -80,7 +80,7 @@ async function processTwilioMessage(parsedMessage, phoneNumberId) {
 
   logger.info(` Message from ${from}: ${message}`);
 
-  // Get business information (use default for now, later match by phone number)
+  // Get business information by Twilio phone number
   const business = await getBusinessByPhone(phoneNumberId);
   
   if (!business) {
