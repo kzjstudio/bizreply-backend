@@ -1,6 +1,6 @@
 import { sendWhatsAppMessage, parseTwilioWebhook, parseMetaWebhook } from '../services/whatsapp.service.js';
 import { generateAIResponse } from '../services/ai.service.js';
-import { saveMessage, getBusinessByPhone } from '../services/database.service.js';
+import { saveMessage, getBusinessByPhone } from '../services/supabase.service.js';
 import { logger } from '../utils/logger.js';
 
 const WHATSAPP_PROVIDER = process.env.WHATSAPP_PROVIDER || 'meta';
@@ -152,12 +152,11 @@ async function processTwilioMessage(parsedMessage, phoneNumberId) {
     customerPhone: from,
     businessId: business.id,
     businessRules: {
-      businessName: business.businessName,
-      businessHours: business.businessHours,
+      businessName: business.business_name,
+      businessHours: business.business_hours,
       description: business.description,
       location: business.location,
-      priceList: business.priceList
-    },
+      priceList: business.price_list,      aiInstructions: business.ai_instructions,      aiTone: business.ai_tone,      aiFaqs: business.ai_faqs,      aiSpecialOffers: business.ai_special_offers,      aiDoNotMention: business.ai_do_not_mention    },
     templates: null
   });
 
@@ -233,12 +232,11 @@ async function handleMetaWebhook(body) {
             customerPhone: from,
             businessId: business.id,
             businessRules: {
-      businessName: business.businessName,
-      businessHours: business.businessHours,
+      businessName: business.business_name,
+      businessHours: business.business_hours,
       description: business.description,
       location: business.location,
-      priceList: business.priceList
-    },
+      priceList: business.price_list,      aiInstructions: business.ai_instructions,      aiTone: business.ai_tone,      aiFaqs: business.ai_faqs,      aiSpecialOffers: business.ai_special_offers,      aiDoNotMention: business.ai_do_not_mention    },
     templates: null
           });
 
@@ -277,3 +275,5 @@ async function handleMetaWebhook(body) {
     }
   }
 }
+
+
