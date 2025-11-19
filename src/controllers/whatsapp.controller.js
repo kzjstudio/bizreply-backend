@@ -1,4 +1,4 @@
-﻿import { sendWhatsAppMessage, parseTwilioWebhook, parseMetaWebhook } from '../services/whatsapp.service.js';
+import { sendWhatsAppMessage, parseTwilioWebhook, parseMetaWebhook } from '../services/whatsapp.service.js';
 import { generateAIResponse } from '../services/ai.service.js';
 import { saveMessage, getBusinessByPhone } from '../services/database.service.js';
 import { logger } from '../utils/logger.js';
@@ -78,13 +78,13 @@ export const handleWebhook = async (req, res) => {
 async function processTwilioMessage(parsedMessage, phoneNumberId) {
   const { from, message, messageId, timestamp } = parsedMessage;
 
-  logger.info(` Message from : `);
+  logger.info(` Message from ${from}: ${message}`);
 
   // Get business information (use default for now, later match by phone number)
   const business = await getBusinessByPhone(phoneNumberId);
   
   if (!business) {
-    logger.error(` No business found for phone number ID: `);
+    logger.error(` No business found for phone number ID: ${phoneNumberId}`);
     // For testing, use a default business ID
     const defaultBusinessId = 'default';
     
@@ -204,7 +204,7 @@ async function handleMetaWebhook(body) {
           const business = await getBusinessByPhone(value.metadata.phone_number_id);
 
           if (!business) {
-            logger.error(` No business found for phone number ID: `);
+            logger.error(` No business found for phone number ID: ${phoneNumberId}`);
             continue;
           }
 
