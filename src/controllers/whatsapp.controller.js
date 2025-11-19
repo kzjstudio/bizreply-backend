@@ -47,8 +47,8 @@ export const handleWebhook = async (req, res) => {
     let parsedMessage;
     let phoneNumberId;
     
-    if (body.MessageSid) {
-      // Twilio webhook
+    if (body.MessageSid && body.Body) {
+      // Twilio incoming message webhook (ignore status callbacks)
       logger.info(' Detected Twilio webhook');
       parsedMessage = parseTwilioWebhook(body);
       phoneNumberId = process.env.TWILIO_WHATSAPP_NUMBER || '+14155238886'; // Twilio sandbox number
