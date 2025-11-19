@@ -36,12 +36,13 @@ export const verifyWebhook = (req, res) => {
  */
 export const handleWebhook = async (req, res) => {
   // Respond quickly to avoid timeout
-  res.sendStatus(200);
+  res.type('text/xml').send('<?xml version="1.0" encoding="UTF-8"?><Response></Response>');
 
   try {
     const body = req.body;
     
     logger.info(' Webhook received:', JSON.stringify(body, null, 2));
+    logger.info(' Webhook type check - MessageSid:', body.MessageSid, 'Body:', body.Body, 'SmsStatus:', body.SmsStatus);
 
     // Detect provider based on webhook structure
     let parsedMessage;
