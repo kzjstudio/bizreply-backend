@@ -1,4 +1,4 @@
-﻿import axios from 'axios';
+import axios from 'axios';
 import twilio from 'twilio';
 import { logger } from '../utils/logger.js';
 
@@ -28,11 +28,11 @@ const sendWhatsAppMessageViaTwilio = async ({ to, message }) => {
   try {
     const result = await twilioClient.messages.create({
       body: message,
-      from: `whatsapp:${TWILIO_WHATSAPP_NUMBER}`,
-      to: `whatsapp:`
+      from: `whatsapp:+${TWILIO_WHATSAPP_NUMBER}`,
+      to: `whatsapp:${to}`
     });
     
-    logger.info(` Twilio message sent to , SID: `);
+    logger.info(` Twilio message sent to ${to}, SID: ${result.sid}`);
     return {
       success: true,
       messageId: result.sid,
