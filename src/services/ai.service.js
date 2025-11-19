@@ -88,6 +88,9 @@ IMPORTANT GUIDELINES:
     if (businessRules.description) prompt += `Description: ${businessRules.description}\n`;
     if (businessRules.location) prompt += `Location: ${businessRules.location}\n`;
     if (businessRules.priceList) prompt += `Pricing/Menu: ${businessRules.priceList}\n`;
+    if (businessRules.aiSpecialOffers) prompt += `\nSPECIAL OFFERS & PROMOTIONS:\n${businessRules.aiSpecialOffers}\n`;
+    if (businessRules.aiFaqs) prompt += `\nFREQUENTLY ASKED QUESTIONS:\n${businessRules.aiFaqs}\n`;
+    if (businessRules.aiDoNotMention) prompt += `\nTOPICS TO AVOID (Never discuss these):\n${businessRules.aiDoNotMention}\n`;
     if (businessRules.specialInstructions) prompt += `Special Instructions: ${businessRules.specialInstructions}\n`;
   }
 
