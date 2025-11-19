@@ -28,7 +28,7 @@ const sendWhatsAppMessageViaTwilio = async ({ to, message }) => {
   try {
     const result = await twilioClient.messages.create({
       body: message,
-      from: `whatsapp:+${TWILIO_WHATSAPP_NUMBER}`,
+      from: `whatsapp:${TWILIO_WHATSAPP_NUMBER}`,
       to: `whatsapp:${to}`
     });
     
