@@ -136,16 +136,7 @@ async function processTwilioMessage(parsedMessage, phoneNumberId) {
   }
 
   // Normal flow with business found
-  await saveMessage({
-    messageId,
-    businessId: business.id,
-    from,
-    to: phoneNumberId,
-    messageText: message,
-    timestamp: new Date(timestamp),
-    direction: 'incoming',
-    type: 'text'
-  });
+  await saveMessage({    messageSid: messageId,    businessId: business.id,    customerPhone: from,    direction: 'incoming',    messageText: message,    fromPhone: from,    toPhone: phoneNumberId  });
 
   const aiResponse = await generateAIResponse({
     customerMessage: message,
@@ -166,17 +157,7 @@ async function processTwilioMessage(parsedMessage, phoneNumberId) {
     phoneNumberId
   });
 
-  if (sentMessage) {
-    await saveMessage({
-      messageId: sentMessage.messageId,
-      businessId: business.id,
-      from: phoneNumberId,
-      to: from,
-      messageText: aiResponse,
-      timestamp: new Date(),
-      direction: 'outgoing',
-      type: 'text'
-    });
+  if (sentMessage) {    await saveMessage({      messageSid: sentMessage.messageId,      businessId: business.id,      customerPhone: from,      direction: 'outgoing',      messageText: aiResponse,      fromPhone: phoneNumberId,      toPhone: from    });
   }
 
   logger.info(` Replied to  successfully`);
@@ -275,6 +256,8 @@ async function handleMetaWebhook(body) {
     }
   }
 }
+
+
 
 
 
