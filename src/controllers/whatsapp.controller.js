@@ -151,8 +151,14 @@ async function processTwilioMessage(parsedMessage, phoneNumberId) {
     customerMessage: message,
     customerPhone: from,
     businessId: business.id,
-    businessRules: business.rules,
-    templates: business.templates
+    businessRules: {
+      businessName: business.businessName,
+      businessHours: business.businessHours,
+      description: business.description,
+      location: business.location,
+      priceList: business.priceList
+    },
+    templates: null
   });
 
   const sentMessage = await sendWhatsAppMessage({
@@ -226,8 +232,14 @@ async function handleMetaWebhook(body) {
             customerMessage: messageText,
             customerPhone: from,
             businessId: business.id,
-            businessRules: business.rules,
-            templates: business.templates
+            businessRules: {
+      businessName: business.businessName,
+      businessHours: business.businessHours,
+      description: business.description,
+      location: business.location,
+      priceList: business.priceList
+    },
+    templates: null
           });
 
           // Send reply back to customer

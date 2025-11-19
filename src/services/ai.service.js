@@ -86,6 +86,8 @@ IMPORTANT GUIDELINES:
     if (businessRules.businessName) prompt += `Business Name: ${businessRules.businessName}\n`;
     if (businessRules.businessHours) prompt += `Business Hours: ${businessRules.businessHours}\n`;
     if (businessRules.description) prompt += `Description: ${businessRules.description}\n`;
+    if (businessRules.location) prompt += `Location: ${businessRules.location}\n`;
+    if (businessRules.priceList) prompt += `Pricing/Menu: ${businessRules.priceList}\n`;
     if (businessRules.specialInstructions) prompt += `Special Instructions: ${businessRules.specialInstructions}\n`;
   }
 
