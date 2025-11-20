@@ -1,12 +1,14 @@
-import express from 'express';
+﻿import express from 'express';
 import dotenv from 'dotenv';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import whatsappRoutes from './routes/whatsapp.routes.js';
 import businessRoutes from './routes/business.routes.js';
+import productsRoutes from '../routes/products.js';
 import { initializeFirebase } from './config/firebase.config.js';
 import { logger } from './utils/logger.js';
+import productSyncService from '../services/productSyncService.js';
 
 // Load environment variables
 dotenv.config();
@@ -35,8 +37,8 @@ initializeFirebase();
 
 // Health check endpoint
 app.get('/health', (req, res) => {
-  res.status(200).json({ 
-    status: 'OK', 
+  res.status(200).json({
+    status: 'OK',
     message: 'BizReply Backend Server is running',
     timestamp: new Date().toISOString()
   });
@@ -45,6 +47,7 @@ app.get('/health', (req, res) => {
 // Routes
 app.use('/webhook', whatsappRoutes);
 app.use('/api/business', businessRoutes);
+app.use('/api/products', productsRoutes);
 
 // 404 handler
 app.use((req, res) => {
@@ -54,7 +57,7 @@ app.use((req, res) => {
 // Error handling middleware
 app.use((err, req, res, next) => {
   logger.error('Server error:', err);
-  res.status(500).json({ 
+  res.status(500).json({
     error: 'Internal server error',
     message: process.env.NODE_ENV === 'development' ? err.message : undefined
   });
@@ -62,9 +65,19 @@ app.use((err, req, res, next) => {
 
 // Start server
 app.listen(PORT, () => {
-  logger.info(`🚀 BizReply Backend Server running on port ${PORT}`);
-  logger.info(`📱 WhatsApp webhook endpoint: http://localhost:${PORT}/webhook`);
-  logger.info(`🏥 Health check: http://localhost:${PORT}/health`);
+  logger.info( BizReply Backend Server running on port ${PORT});
+  logger.info( WhatsApp webhook endpoint: http://localhost:${PORT}/webhook);
+  logger.info( Health check: http://localhost:${PORT}/health);
+  
+  // Start product sync service
+  productSyncService.startPeriodicSync();
+});
+
+// Graceful shutdown
+process.on('SIGTERM', () => {
+  console.log('SIGTERM received, shutting down gracefully...');
+  productSyncService.stopPeriodicSync();
+  process.exit(0);
 });
 
 export default app;
