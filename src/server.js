@@ -6,6 +6,7 @@ import rateLimit from 'express-rate-limit';
 import whatsappRoutes from './routes/whatsapp.routes.js';
 import businessRoutes from './routes/business.routes.js';
 import productsRoutes from '../routes/products.js';
+import aiRoutes from '../routes/ai.js';
 import { initializeFirebase } from './config/firebase.config.js';
 import { logger } from './utils/logger.js';
 import productSyncService from '../services/productSyncService.js';
@@ -48,6 +49,7 @@ app.get('/health', (req, res) => {
 app.use('/webhook', whatsappRoutes);
 app.use('/api/business', businessRoutes);
 app.use('/api/products', productsRoutes);
+app.use('/api/ai', aiRoutes);
 
 // 404 handler
 app.use((req, res) => {
@@ -81,3 +83,4 @@ process.on('SIGTERM', () => {
 });
 
 export default app;
+
