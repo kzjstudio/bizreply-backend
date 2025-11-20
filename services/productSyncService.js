@@ -17,7 +17,7 @@ class ProductSyncService {
   constructor() {
     this.embeddingModel = 'text-embedding-3-small';
     this.embeddingDimensions = 1536;
-    this.syncInterval = 3600000; // 1 hour in milliseconds
+    this.syncInterval = 300000; // 5 minutes in milliseconds
     this.isRunning = false;
   }
 

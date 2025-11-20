@@ -198,14 +198,11 @@ class AIEngine {
       // 2. Get conversation history
       const history = await this.getConversationHistory(conversationId, 8);
 
-      // 3. Get relevant products based on context
-      const conversationContext = history
-        .map(msg => msg.message_text)
-        .join(' ') + ' ' + customerMessage;
-
+      // 3. Get relevant products based on current message (not full history)
+      // Using only customerMessage provides cleaner semantic matching
       const products = await this.getRelevantProducts(
         businessId,
-        conversationContext,
+        customerMessage, // Only current query for better product matching
         5
       );
 
