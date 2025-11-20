@@ -241,11 +241,23 @@ class AIEngine {
 
       // 3. Get relevant products based on current message (not full history)
       // Using only customerMessage provides cleaner semantic matching
-      const products = await this.getRelevantProducts(
+      let products = await this.getRelevantProducts(
         businessId,
         customerMessage, // Only current query for better product matching
         5
       );
+
+
+      // Fallback: If no products found and message mentions price, try direct price filter
+      if (products.length === 0 && /under|below|less than|\$\d+/.test(customerMessage.toLowerCase())) {
+        console.log(' Semantic search returned 0, trying price-based fallback...');
+        const priceMatch = customerMessage.match(/\$(\d+)/);
+        if (priceMatch) {
+          const maxPrice = parseInt(priceMatch[1]);
+          products = await this.getProductsByPrice(businessId, maxPrice);
+          console.log(` Found ${products.length} products under $${maxPrice}`);
+        }
+      }
 
       console.log(`📦 Found ${products.length} relevant products`);
 
