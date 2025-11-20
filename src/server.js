@@ -1,4 +1,4 @@
-﻿import express from 'express';
+import express from 'express';
 import dotenv from 'dotenv';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -67,9 +67,9 @@ app.use((err, req, res, next) => {
 
 // Start server
 app.listen(PORT, () => {
-  logger.info( BizReply Backend Server running on port ${PORT});
-  logger.info( WhatsApp webhook endpoint: http://localhost:${PORT}/webhook);
-  logger.info( Health check: http://localhost:${PORT}/health);
+  logger.info(`BizReply Backend Server running on port ${PORT}`);
+  logger.info(`WhatsApp webhook endpoint: http://localhost:${PORT}/webhook`);
+  logger.info(`Health check: http://localhost:${PORT}/health`);
   
   // Start product sync service
   productSyncService.startPeriodicSync();
