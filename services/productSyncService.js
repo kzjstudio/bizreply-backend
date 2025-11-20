@@ -1,4 +1,4 @@
-﻿import { createClient } from '@supabase/supabase-js';
+import { createClient } from '@supabase/supabase-js';
 import OpenAI from 'openai';
 import dotenv from 'dotenv';
 
@@ -36,7 +36,7 @@ class ProductSyncService {
       this.syncAllProducts();
     }, this.syncInterval);
 
-    console.log( Product sync service started (interval: ${this.syncInterval / 60000} minutes));
+    console.log(`Product sync service started (interval: ${this.syncInterval / 60000} minutes`);
   }
 
   stopPeriodicSync() {
@@ -68,7 +68,7 @@ class ProductSyncService {
         return;
       }
 
-      console.log( Found ${products.length} products to sync);
+      console.log(`Found ${products.length} products to sync`);
 
       const batchSize = 10;
       for (let i = 0; i < products.length; i += batchSize) {
@@ -76,7 +76,7 @@ class ProductSyncService {
         await Promise.all(batch.map(product => this.syncProduct(product)));
       }
 
-      console.log( Product sync completed: ${products.length} products processed);
+      console.log(`Product sync completed: ${products.length} products processed`);
     } catch (error) {
       console.error('Error in syncAllProducts:', error);
     }
@@ -91,7 +91,7 @@ class ProductSyncService {
       await this.saveProductEmbedding(product.id, product.business_id, embedding, embeddingText);
       await this.updateProductEmbedding(product.id, embedding);
 
-      console.log( Synced product: ${product.name} (${product.id}));
+      console.log(`Synced product: ${product.name} (${product.id})`);
     } catch (error) {
       console.error(Error syncing product ${product.id}:, error.message);
     }
@@ -257,7 +257,7 @@ class ProductSyncService {
 
   async syncBusinessProducts(businessId) {
     try {
-      console.log( Syncing products for business: ${businessId});
+    console.log(`Syncing products for business: ${businessId}`);
 
       const { data: products, error } = await supabase
         .from('products')
@@ -273,7 +273,7 @@ class ProductSyncService {
 
       await Promise.all(products.map(product => this.syncProduct(product)));
 
-      console.log( Synced ${products.length} products for business ${businessId});
+    console.log(`Synced ${products.length} products for business ${businessId}`);
 
       return { success: true, count: products.length };
     } catch (error) {
