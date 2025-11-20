@@ -1,5 +1,5 @@
 import express from 'express';
-import WooCommerceRestApi from '@woocommerce/woocommerce-rest-api';
+import WooCommerce from '@woocommerce/woocommerce-rest-api';
 import { supabase } from '../src/services/supabase.service.js';
 import productSyncService from '../services/productSyncService.js';
 
@@ -32,7 +32,7 @@ router.post('/connect', async (req, res) => {
       }
 
       try {
-        const woocommerce = new WooCommerceRestApi({
+        const woocommerce = new WooCommerce({
           url: store_url,
           consumerKey: consumer_key,
           consumerSecret: consumer_secret,
@@ -127,7 +127,7 @@ router.post('/sync', async (req, res) => {
     if (platform === 'woocommerce') {
       const { store_url, consumer_key, consumer_secret } = integration.credentials;
 
-      const woocommerce = new WooCommerceRestApi({
+      const woocommerce = new WooCommerce({
         url: store_url,
         consumerKey: consumer_key,
         consumerSecret: consumer_secret,
