@@ -93,7 +93,7 @@ class ProductSyncService {
 
       console.log(`Synced product: ${product.name} (${product.id})`);
     } catch (error) {
-      console.error(Error syncing product ${product.id}:, error.message);
+      console.error(`Error syncing product ${product.id}:`, error.message);
     }
   }
 
