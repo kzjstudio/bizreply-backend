@@ -1,5 +1,6 @@
 import express from 'express';
-import WooCommerce from '@woocommerce/woocommerce-rest-api';
+import pkg from '@woocommerce/woocommerce-rest-api';
+const WooCommerce = pkg.default;
 import { supabase } from '../src/services/supabase.service.js';
 import productSyncService from '../services/productSyncService.js';
 
