@@ -128,19 +128,19 @@ class ProductSyncService {
     const parts = [];
 
     if (productData.name) {
-      parts.push(Product: ${productData.name});
+      parts.push(`Product: ${productData.name}`);
     }
 
     if (productData.category) {
-      parts.push(Category: ${productData.category});
+      parts.push(`Category: ${productData.category}`);
     }
 
     if (productData.price > 0) {
-      parts.push(Price: $${productData.price.toFixed(2)});
+      parts.push(`Price: $${productData.price.toFixed(2)}`);
     }
 
     if (productData.description) {
-      parts.push(Description: ${productData.description});
+      parts.push(`Description: ${productData.description}`);
     }
 
     return parts.join('. ');
