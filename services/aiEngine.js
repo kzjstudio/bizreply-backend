@@ -146,7 +146,12 @@ class AIEngine {
         }
       });
 
-      systemPrompt += `\n\nWhen recommending products, mention the name, price, and key benefits. Be helpful and answer questions about products naturally.`;
+      systemPrompt += `\n\n PRODUCT RECOMMENDATION RULES:\n`;
+      systemPrompt += `- When asked about products, you MUST list ALL products above that match the criteria\n`;
+      systemPrompt += `- ALWAYS include: Product name + Price for each item\n`;
+      systemPrompt += `- Format as a numbered or bulleted list\n`;
+      systemPrompt += `- If customer asks for price range (e.g., under $50), list ALL qualifying products\n`;
+      systemPrompt += `- Do NOT say "Here are SOME items" - list them ALL`;
     }
 
     // General guidelines

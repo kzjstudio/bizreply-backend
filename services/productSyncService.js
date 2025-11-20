@@ -233,14 +233,12 @@ class ProductSyncService {
   }
 
   async getRecommendations(businessId, conversationContext, limit = 5) {
-    try {
-      console.log(' getRecommendations called:', { businessId, contextLength: conversationContext.length, limit });
-      const contextEmbedding = await this.createEmbedding(conversationContext);
+    try {      const contextEmbedding = await this.createEmbedding(conversationContext);
 
       const { data, error } = await supabase.rpc('search_similar_products', {
         query_embedding: contextEmbedding,
         business_id_param: businessId,
-        match_threshold: 0.3, // TEMP: Lowered for debugging
+        match_threshold: 0.4, // Optimized for semantic product search
         match_count: limit,
       });
 
