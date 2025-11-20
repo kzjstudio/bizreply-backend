@@ -1,4 +1,4 @@
-﻿import express from 'express';
+import express from 'express';
 import { createClient } from '@supabase/supabase-js';
 import productSyncService from '../services/productSyncService.js';
 
@@ -30,7 +30,7 @@ router.post('/sync/:businessId', async (req, res) => {
 
     res.json({
       success: true,
-      message: Successfully synced ${result.count} products,
+      message: `Successfully synced ${result.count} products`,
       count: result.count,
     });
   } catch (error) {
