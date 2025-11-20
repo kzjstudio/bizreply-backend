@@ -10,6 +10,7 @@ import aiRoutes from '../routes/ai.js';
 import { initializeFirebase } from './config/firebase.config.js';
 import { logger } from './utils/logger.js';
 import productSyncService from '../services/productSyncService.js';
+import integrationsRoutes from '../routes/integrations.js';
 
 // Load environment variables
 dotenv.config();
@@ -50,6 +51,7 @@ app.use('/webhook', whatsappRoutes);
 app.use('/api/business', businessRoutes);
 app.use('/api/products', productsRoutes);
 app.use('/api/ai', aiRoutes);
+app.use('/api/integrations', integrationsRoutes);
 
 // 404 handler
 app.use((req, res) => {
