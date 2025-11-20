@@ -1,7 +1,8 @@
 import { sendWhatsAppMessage, parseTwilioWebhook, parseMetaWebhook } from '../services/whatsapp.service.js';
 import { generateAIResponse } from '../services/ai.service.js';
-import { saveMessage, getBusinessByPhone } from '../services/supabase.service.js';
+import { saveMessage, getBusinessByPhone, getOrCreateConversation } from '../services/supabase.service.js';
 import { logger } from '../utils/logger.js';
+import aiEngine from '../../services/aiEngine.js';
 
 const WHATSAPP_PROVIDER = process.env.WHATSAPP_PROVIDER || 'meta';
 
@@ -136,22 +137,20 @@ async function processTwilioMessage(parsedMessage, phoneNumberId) {
   }
 
   // Normal flow with business found
+  // Get or create conversation
+  const conversation = await getOrCreateConversation(business.id, from);
+  
   await saveMessage({    messageSid: messageId,    businessId: business.id,    customerPhone: from,    direction: 'incoming',    messageText: message,    fromPhone: from,    toPhone: phoneNumberId  });
-
-  const aiResponse = await generateAIResponse({
-    customerMessage: message,
-    customerPhone: from,
-    businessId: business.id,
-    businessRules: {
-      businessName: business.business_name,
-      businessHours: business.business_hours,
-      description: business.description,
-      location: business.location,
-      priceList: business.price_list,      aiInstructions: business.ai_instructions,      aiTone: business.ai_tone,      aiFaqs: business.ai_faqs,      aiSpecialOffers: business.ai_special_offers,      aiDoNotMention: business.ai_do_not_mention    },
-    templates: null
-  });
-
-  const sentMessage = await sendWhatsAppMessage({
+  
+  // Use AI Engine with product recommendations
+  const aiResult = await aiEngine.generateResponse(
+    business.id,
+    conversation.id,
+    message,
+    from
+  );
+  
+  const aiResponse = aiResult.response;  const sentMessage = await sendWhatsAppMessage({
     to: from,
     message: aiResponse,
     phoneNumberId
@@ -195,6 +194,9 @@ async function handleMetaWebhook(body) {
             continue;
           }
 
+          // Get or create conversation
+          const conversation = await getOrCreateConversation(business.id, from);
+          
           // Save incoming message to database
           await saveMessage({
             messageId,
@@ -207,21 +209,15 @@ async function handleMetaWebhook(body) {
             type: messageType
           });
 
-          // Generate AI response
-          const aiResponse = await generateAIResponse({
-            customerMessage: messageText,
-            customerPhone: from,
-            businessId: business.id,
-            businessRules: {
-      businessName: business.business_name,
-      businessHours: business.business_hours,
-      description: business.description,
-      location: business.location,
-      priceList: business.price_list,      aiInstructions: business.ai_instructions,      aiTone: business.ai_tone,      aiFaqs: business.ai_faqs,      aiSpecialOffers: business.ai_special_offers,      aiDoNotMention: business.ai_do_not_mention    },
-    templates: null
-          });
-
-          // Send reply back to customer
+          // Use AI Engine with product recommendations
+          const aiResult = await aiEngine.generateResponse(
+            business.id,
+            conversation.id,
+            messageText,
+            from
+          );
+          
+          const aiResponse = aiResult.response;          // Send reply back to customer
           const sentMessage = await sendWhatsAppMessage({
             to: from,
             message: aiResponse,
