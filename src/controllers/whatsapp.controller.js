@@ -138,19 +138,17 @@ async function processTwilioMessage(parsedMessage, phoneNumberId) {
 
   // Normal flow with business found
   // Get or create conversation
-  const conversation = await getOrCreateConversation(business.id, from);
-  
+  const conversationId = await getOrCreateConversation(business.id, from);
+
   await saveMessage({    messageSid: messageId,    businessId: business.id,    customerPhone: from,    direction: 'incoming',    messageText: message,    fromPhone: from,    toPhone: phoneNumberId  });
-  
+
   // Use AI Engine with product recommendations
   const aiResult = await aiEngine.generateResponse(
     business.id,
-    conversation.id,
+    conversationId,
     message,
     from
-  );
-  
-  const aiResponse = aiResult.response;  const sentMessage = await sendWhatsAppMessage({
+  );  const aiResponse = aiResult.response;  const sentMessage = await sendWhatsAppMessage({
     to: from,
     message: aiResponse,
     phoneNumberId
@@ -195,8 +193,8 @@ async function handleMetaWebhook(body) {
           }
 
           // Get or create conversation
-          const conversation = await getOrCreateConversation(business.id, from);
-          
+          const conversationId = await getOrCreateConversation(business.id, from);
+
           // Save incoming message to database
           await saveMessage({
             messageId,
@@ -212,12 +210,10 @@ async function handleMetaWebhook(body) {
           // Use AI Engine with product recommendations
           const aiResult = await aiEngine.generateResponse(
             business.id,
-            conversation.id,
+            conversationId,
             messageText,
             from
-          );
-          
-          const aiResponse = aiResult.response;          // Send reply back to customer
+          );          const aiResponse = aiResult.response;          // Send reply back to customer
           const sentMessage = await sendWhatsAppMessage({
             to: from,
             message: aiResponse,
