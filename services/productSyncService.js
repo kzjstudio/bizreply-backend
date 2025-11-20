@@ -54,7 +54,7 @@ class ProductSyncService {
       const { data: products, error } = await supabase
         .from('products')
         .select('id, business_id, name, description, price, category, image_url, updated_at, last_embedded_at')
-        .or('embedding.is.null,updated_at.gt.last_embedded_at')
+        .is(`embedding`, null)
         .eq('is_active', true)
         .limit(100);
 
