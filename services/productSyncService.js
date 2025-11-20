@@ -238,7 +238,7 @@ class ProductSyncService {
       const { data, error } = await supabase.rpc('search_similar_products', {
         query_embedding: contextEmbedding,
         business_id_param: businessId,
-        match_threshold: 0.4, // Optimized for semantic product search
+        match_threshold: 0.35, // Optimized for semantic product search
         match_count: limit,
       });
 

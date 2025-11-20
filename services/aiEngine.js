@@ -68,6 +68,42 @@ class AIEngine {
   }
 
   /**
+   * Get products by price (fallback when semantic search fails)
+   */
+  async getProductsByPrice(businessId, maxPrice, limit = 10) {
+    try {
+      const { data: products, error } = await supabase
+        .from('products')
+        .select('id, name, description, price, sale_price, category, image_url, external_id, sku, stock_quantity, source_platform')
+        .eq('business_id', businessId)
+        .eq('is_active', true)
+        .or(`price.lte.${maxPrice},sale_price.lte.${maxPrice}`)
+        .order('price', { ascending: true })
+        .limit(limit);
+
+      if (error) throw error;
+
+      // Transform to match product recommendation format
+      return (products || []).map(p => ({
+        product_id: p.id,
+        product_name: p.name,
+        product_description: p.description,
+        price: p.price,
+        sale_price: p.sale_price,
+        category: p.category,
+        image_url: p.image_url,
+        external_id: p.external_id,
+        sku: p.sku,
+        stock_quantity: p.stock_quantity,
+        source_platform: p.source_platform
+      }));
+    } catch (error) {
+      console.error('Error getting products by price:', error);
+      return [];
+    }
+  }
+
+  /**
    * Get conversation history for context
    */
   async getConversationHistory(conversationId, limit = 10) {
