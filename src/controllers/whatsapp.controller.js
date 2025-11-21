@@ -1,6 +1,6 @@
 import { sendWhatsAppMessage, parseTwilioWebhook, parseMetaWebhook } from '../services/whatsapp.service.js';
-import { generateAIResponse } from '../services/ai.service.js';
-import { saveMessage, getBusinessByPhone, getOrCreateConversation } from '../services/supabase.service.js';
+import { generateAIResponse, detectEscalationRequest } from '../services/ai.service.js';
+import { saveMessage, getBusinessByPhone, getOrCreateConversation, updateConversationEscalation } from '../services/supabase.service.js';
 import { logger } from '../utils/logger.js';
 import aiEngine from '../../services/aiEngine.js';
 
@@ -141,6 +141,43 @@ async function processTwilioMessage(parsedMessage, phoneNumberId) {
   const conversationId = await getOrCreateConversation(business.id, from);
 
   await saveMessage({    messageSid: messageId,    businessId: business.id,    customerPhone: from,    direction: 'incoming',    messageText: message,    fromPhone: from,    toPhone: phoneNumberId  });
+
+  // Check if customer is requesting human assistance
+  const escalation = detectEscalationRequest(message);
+  
+  if (escalation.isEscalation) {
+    // Flag conversation for escalation
+    await updateConversationEscalation(conversationId, {
+      escalationRequested: true,
+      escalationReason: escalation.reason,
+      escalationCount: 1
+    });
+    
+    // Send acknowledgment message
+    const escalationResponse = "I understand you'd like to speak with someone from our team. I've notified them and someone will get back to you shortly. Thank you for your patience! 🙏";
+    
+    const sentMessage = await sendWhatsAppMessage({
+      to: from,
+      message: escalationResponse,
+      phoneNumberId
+    });
+
+    if (sentMessage) {
+      await saveMessage({
+        messageSid: sentMessage.messageId,
+        businessId: business.id,
+        customerPhone: from,
+        direction: 'outgoing',
+        messageText: escalationResponse,
+        fromPhone: phoneNumberId,
+        toPhone: from
+      });
+    }
+    
+    logger.info(`🚨 Escalation request from ${from} - conversation ${conversationId}`);
+    // TODO: Send notification to business owner (email/push/SMS)
+    return;
+  }
 
   // Use AI Engine with product recommendations
   const aiResult = await aiEngine.generateResponse(

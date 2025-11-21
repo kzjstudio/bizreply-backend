@@ -141,6 +141,44 @@ export const getConversationHistory = async (businessId, customerPhone, limit = 
   }
 };
 
+/**
+ * Update conversation escalation status
+ */
+export const updateConversationEscalation = async (conversationId, escalationData) => {
+  try {
+    const { escalationRequested, escalationReason, escalationCount } = escalationData;
+    
+    const updateData = {
+      escalation_requested: escalationRequested,
+      escalation_requested_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+    
+    if (escalationReason) {
+      updateData.escalation_reason = escalationReason;
+    }
+    
+    if (escalationCount !== undefined) {
+      updateData.escalation_count = escalationCount;
+    }
+    
+    const { data, error } = await supabase
+      .from('conversations')
+      .update(updateData)
+      .eq('id', conversationId)
+      .select()
+      .single();
+    
+    if (error) throw error;
+    
+    console.log('[Supabase] Conversation escalated:', conversationId);
+    return data;
+  } catch (error) {
+    console.error('[Supabase] Error updating escalation:', error);
+    throw error;
+  }
+};
+
 // =====================================================
 // MESSAGE FUNCTIONS
 // =====================================================
@@ -258,6 +296,7 @@ export default {
   updateBusiness,
   getOrCreateConversation,
   getConversationHistory,
+  updateConversationEscalation,
   saveMessage,
   getBusinessProducts,
   searchProducts

@@ -65,6 +65,32 @@ export const generateAIResponse = async ({
 };
 
 /**
+ * Detect if customer is requesting human assistance
+ */
+export const detectEscalationRequest = (customerMessage) => {
+  const lowerMessage = customerMessage.toLowerCase();
+  
+  // Escalation keywords and phrases
+  const escalationPhrases = [
+    'speak to a human', 'talk to a human', 'human representative', 'real person',
+    'speak to someone', 'talk to someone', 'connect me to', 'transfer me to',
+    'speak with', 'talk with', 'customer service', 'support representative',
+    'agent', 'manager', 'supervisor', 'human help', 'live person',
+    'not satisfied', 'complaint', 'escalate', 'unhappy with', 'frustrated'
+  ];
+  
+  const isEscalation = escalationPhrases.some(phrase => lowerMessage.includes(phrase));
+  
+  // Try to extract reason if possible
+  let reason = null;
+  if (isEscalation) {
+    reason = customerMessage.trim().substring(0, 200); // Capture first 200 chars as context
+  }
+  
+  return { isEscalation, reason };
+};
+
+/**
  * Build system prompt with business context
  */
 const buildSystemPrompt = (businessRules, templates) => {
@@ -76,6 +102,7 @@ IMPORTANT GUIDELINES:
 - Keep responses concise (under 300 characters when possible for WhatsApp)
 - Use the business information provided below to answer questions
 - If you don't know something, politely say so and offer to connect them with a human
+- If customer asks to speak with a human/representative, acknowledge and let them know someone will assist shortly
 - Never make up information not provided in the business rules
 - **If a product has a product_url or link, you MUST always include the product link in your response.**
 - If a customer asks for a product link, always provide the direct product_url if available.
