@@ -292,36 +292,81 @@ class AIEngine {
             .eq('business_id', businessId)
             .eq('is_active', true);
           if (!error && allProducts && allProducts.length > 0) {
-            // Try to match products by name or description to the user's query
-            // Tokenize query, remove stopwords/short words, and match if any keyword is in product name/description
+            // Synonym mapping for common product terms (production-ready approach)
+            const synonyms = {
+              'fan': ['fan', 'blower', 'cooler', 'ventilator'],
+              'hat': ['hat', 'cap', 'beanie', 'headwear'],
+              'shirt': ['shirt', 'tee', 't-shirt', 'top', 'blouse'],
+              'pant': ['pant', 'trouser', 'jean', 'slack'],
+              'shoe': ['shoe', 'sneaker', 'boot', 'footwear'],
+              'bag': ['bag', 'purse', 'tote', 'backpack', 'satchel'],
+            };
+            
+            // Tokenize query, remove stopwords/short words
             const stopwords = new Set(['the','of','and','a','an','to','in','on','for','with','at','by','from','up','about','into','over','after','under','above','below','can','you','me','is','are','do','does','did','i','we','they','he','she','it','this','that','these','those','as','be','have','has','had','will','would','should','could','may','might','must','shall','or','so','but','if','then','than','too','very','just','not','no','yes','was','were','been','being','your','my','our','their','his','her','its','which','who','whom','whose','what','when','where','why','how']);
             let queryWords = customerMessage.toLowerCase().split(/\W+/)
               .filter(w => w && w.length > 2 && !stopwords.has(w))
               .map(w => w.replace(/s$/, ''));
-            let colorMap = {};
+            
+            // Expand query words with synonyms
+            let expandedWords = new Set(queryWords);
+            queryWords.forEach(word => {
+              if (synonyms[word]) {
+                synonyms[word].forEach(syn => expandedWords.add(syn));
+              }
+            });
+            queryWords = [...expandedWords];
+            
+            console.log(`[AIEngine] Color fallback - Query words: ${queryWords.join(', ')}`);
+            
+            // Score-based matching for better accuracy
+            let productScores = [];
             allProducts.forEach(p => {
               const name = (p.name || '').toLowerCase();
               const desc = (p.description || '').toLowerCase();
-              // Remove plural 's' for matching
-              const nameBase = name.replace(/s\b/g, '');
-              const descBase = desc.replace(/s\b/g, '');
-              // Only match if at least one non-stopword keyword is found
-              const matches = queryWords.length > 0 && queryWords.some(word => nameBase.includes(word) || descBase.includes(word));
-              if (matches && p.variant_options && typeof p.variant_options === 'object') {
-                Object.entries(p.variant_options).forEach(([key, values]) => {
-                  if (/color|colou?r/i.test(key) && Array.isArray(values)) {
-                    if (!colorMap[p.name]) colorMap[p.name] = [];
-                    colorMap[p.name].push(...values.filter(v => v && v.trim()));
-                  }
-                });
+              let score = 0;
+              
+              queryWords.forEach(word => {
+                // Exact match in name: highest score
+                if (name.includes(word)) {
+                  score += 10;
+                }
+                // Partial match in name (first 3 chars)
+                else if (word.length >= 3 && name.includes(word.substring(0, 3))) {
+                  score += 5;
+                }
+                // Match in description
+                if (desc.includes(word)) {
+                  score += 3;
+                }
+              });
+              
+              if (score > 0 && p.variant_options && typeof p.variant_options === 'object') {
+                productScores.push({ product: p, score });
               }
             });
+            
+            // Sort by score and take top matches
+            productScores.sort((a, b) => b.score - a.score);
+            console.log(`[AIEngine] Color fallback - Found ${productScores.length} matching products`);
+            
+            let colorMap = {};
+            productScores.forEach(({ product: p }) => {
+              Object.entries(p.variant_options).forEach(([key, values]) => {
+                if (/color|colou?r/i.test(key) && Array.isArray(values)) {
+                  if (!colorMap[p.name]) colorMap[p.name] = [];
+                  colorMap[p.name].push(...values.filter(v => v && v.trim()));
+                }
+              });
+            });
+            
             // Build a strict, non-hallucinated response
             if (Object.keys(colorMap).length > 0) {
               let colorLines = Object.entries(colorMap).map(([prod, colors]) => {
                 const uniqueColors = [...new Set(colors.map(c => c.trim()))];
                 return `The available colors for ${prod} are: ${uniqueColors.join(', ')}`;
               });
+              console.log(`[AIEngine] Color fallback - Returning colors for: ${Object.keys(colorMap).join(', ')}`);
               return {
                 success: true,
                 response: colorLines.join('\n'),
@@ -329,6 +374,7 @@ class AIEngine {
                 tokensUsed: 0,
               };
             } else {
+              console.log(`[AIEngine] Color fallback - No color options found`);
               return {
                 success: true,
                 response: "Sorry, I couldn't find any color options for that product.",
