@@ -272,6 +272,7 @@ class AIEngine {
         5
       );
 
+
       // --- Verify product context: Log and check for correct product and URL ---
       if (products && products.length > 0) {
         const missingUrl = products.filter(p => !p.product_url).map(p => p.product_name || p.name);
@@ -282,16 +283,58 @@ class AIEngine {
         console.log('[AIEngine] Products context for prompt:', JSON.stringify(products, null, 2));
       } else {
         console.warn('[AIEngine] No relevant products found for context:', customerMessage);
-      }
-
-      // Fallback: If no products found and message mentions price, try direct price filter
-      if (products.length === 0 && /under|below|less than|\$\d+/.test(customerMessage.toLowerCase())) {
-        console.log(' Semantic search returned 0, trying price-based fallback...');
-        const priceMatch = customerMessage.match(/\$(\d+)/);
-        if (priceMatch) {
-          const maxPrice = parseInt(priceMatch[1]);
-          products = await this.getProductsByPrice(businessId, maxPrice);
-          console.log(` Found ${products.length} products under $${maxPrice}`);
+        // Fallback: If the message is about color/options and no products found, fetch all products and reply with only real options/colors
+        if (/color|colou?r|option|variant/i.test(customerMessage)) {
+          // Fetch all products for the business
+          const { data: allProducts, error } = await supabase
+            .from('products')
+            .select('name, variant_options')
+            .eq('business_id', businessId)
+            .eq('is_active', true);
+          if (!error && allProducts && allProducts.length > 0) {
+            // Find all color options for products with color variants
+            let colorMap = {};
+            allProducts.forEach(p => {
+              if (p.variant_options && typeof p.variant_options === 'object') {
+                Object.entries(p.variant_options).forEach(([key, values]) => {
+                  if (/color|colou?r/i.test(key) && Array.isArray(values)) {
+                    if (!colorMap[p.name]) colorMap[p.name] = [];
+                    colorMap[p.name].push(...values.filter(v => v && v.trim()));
+                  }
+                });
+              }
+            });
+            // Build a strict, non-hallucinated response
+            if (Object.keys(colorMap).length > 0) {
+              let colorLines = Object.entries(colorMap).map(([prod, colors]) => {
+                const uniqueColors = [...new Set(colors.map(c => c.trim()))];
+                return `The available colors for ${prod} are: ${uniqueColors.join(', ')}`;
+              });
+              return {
+                success: true,
+                response: colorLines.join('\n'),
+                productsRecommended: 0,
+                tokensUsed: 0,
+              };
+            } else {
+              return {
+                success: true,
+                response: "Sorry, I couldn't find any color options for our products.",
+                productsRecommended: 0,
+                tokensUsed: 0,
+              };
+            }
+          }
+        }
+        // Fallback: If no products found and message mentions price, try direct price filter
+        if (/under|below|less than|\$\d+/.test(customerMessage.toLowerCase())) {
+          console.log(' Semantic search returned 0, trying price-based fallback...');
+          const priceMatch = customerMessage.match(/\$(\d+)/);
+          if (priceMatch) {
+            const maxPrice = parseInt(priceMatch[1]);
+            products = await this.getProductsByPrice(businessId, maxPrice);
+            console.log(` Found ${products.length} products under $${maxPrice}`);
+          }
         }
       }
 
