@@ -260,7 +260,7 @@ ON CONFLICT DO NOTHING;
 CREATE OR REPLACE VIEW current_month_usage AS
 SELECT 
   b.id as business_id,
-  b.name as business_name,
+  b.business_name,
   COALESCE(us.total_requests, 0) as total_requests,
   COALESCE(us.total_tokens, 0) as total_tokens,
   COALESCE(us.total_cost, 0) as total_cost,
@@ -280,7 +280,7 @@ LEFT JOIN usage_summary us ON b.id = us.business_id
 CREATE OR REPLACE VIEW business_subscriptions AS
 SELECT 
   b.id as business_id,
-  b.name as business_name,
+  b.business_name,
   sp.name as plan_name,
   sp.tier as plan_tier,
   sp.price_monthly,

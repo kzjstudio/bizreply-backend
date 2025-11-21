@@ -2,6 +2,7 @@ import OpenAI from 'openai';
 import { createClient } from '@supabase/supabase-js';
 import usageTrackingService from './usage-tracking.service.js';
 import productSyncService from './productSyncService.js';
+import notificationService from './notification.service.js';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -685,9 +686,23 @@ CRITICAL RULES:
       const permission = await usageTrackingService.canMakeApiCall(businessId);
       if (!permission.allowed) {
         console.warn(`⚠️  API call blocked for business ${businessId}: ${permission.reason}`);
+        
+        // Send notification to business owner (silent to customer)
+        const usagePercentage = permission.limit ? Math.round((permission.usage / permission.limit) * 100) : 100;
+        await notificationService.sendUsageLimitAlert(businessId, {
+          usage: permission.usage || 0,
+          limit: permission.limit || 0,
+          percentage: usagePercentage,
+          plan: 'Current Plan',
+          reason: permission.reason
+        });
+        
+        // Return customer-friendly fallback response (NO billing language)
+        const fallbackResponse = this.generateFallbackResponse(businessConfig);
+        
         return {
-          success: false,
-          response: `Your account has ${permission.reason}. Please upgrade your plan to continue.`,
+          success: true, // Still "success" so webhook doesn't error
+          response: fallbackResponse,
           productsRecommended: 0,
           tokensUsed: 0,
           limitExceeded: true
@@ -819,6 +834,45 @@ CRITICAL RULES:
       // Fallback greeting
       return "Hello! 👋 Welcome! How can I help you today?";
     }
+  }
+
+  /**
+   * Generate fallback response when usage limit is reached
+   * NEVER mentions billing/subscription to customers
+   */
+  generateFallbackResponse(businessConfig) {
+    const contactInfo = [];
+    
+    if (businessConfig.contactPhone) {
+      contactInfo.push(`📱 ${businessConfig.contactPhone}`);
+    }
+    if (businessConfig.contactEmail) {
+      contactInfo.push(`📧 ${businessConfig.contactEmail}`);
+    }
+    
+    const contactString = contactInfo.length > 0 
+      ? `\n\nYou can reach us at:\n${contactInfo.join('\n')}`
+      : '';
+    
+    // Professional, customer-friendly response
+    let fallback = `Thank you for contacting ${businessConfig.businessName}! 👋\n\n`;
+    fallback += `We're currently experiencing high message volume. `;
+    fallback += `For immediate assistance, please contact us directly and one of our team members will be happy to help you!`;
+    fallback += contactString;
+    
+    // Add business hours if available
+    if (businessConfig.storeHours || businessConfig.businessHours) {
+      fallback += `\n\n⏰ Our hours:\n`;
+      if (businessConfig.storeHours) {
+        fallback += this.formatStoreHours(businessConfig.storeHours);
+      } else {
+        fallback += businessConfig.businessHours;
+      }
+    }
+    
+    fallback += `\n\nWe look forward to assisting you! 😊`;
+    
+    return fallback;
   }
 
   /**
