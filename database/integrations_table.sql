@@ -1,7 +1,7 @@
 -- Create integrations table to store connected e-commerce platforms
 CREATE TABLE IF NOT EXISTS integrations (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  business_id UUID NOT NULL REFERENCES businesses(business_id) ON DELETE CASCADE,
+  business_id UUID NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
   platform VARCHAR(50) NOT NULL,
   credentials JSONB NOT NULL,
   is_active BOOLEAN DEFAULT true,
@@ -15,6 +15,9 @@ CREATE TABLE IF NOT EXISTS integrations (
 -- Create index for faster queries
 CREATE INDEX IF NOT EXISTS idx_integrations_business_id ON integrations(business_id);
 CREATE INDEX IF NOT EXISTS idx_integrations_platform ON integrations(platform);
+
+-- NOTE: Original schema incorrectly referenced businesses(business_id).
+-- If an invalid foreign key exists, run migration script 2025-11-20 to fix.
 
 -- Add RLS policies
 ALTER TABLE integrations ENABLE ROW LEVEL SECURITY;
