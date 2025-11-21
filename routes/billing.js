@@ -13,19 +13,40 @@ router.get('/:businessId/usage/current', async (req, res) => {
   try {
     const { businessId } = req.params;
 
-    const usage = await usageTrackingService.getCurrentMonthUsage(businessId);
+    // Check if tables exist, if not return default data
+    let usage, subscription;
+    
+    try {
+      usage = await usageTrackingService.getCurrentMonthUsage(businessId);
+    } catch (err) {
+      logger.warn('Usage tables not found, returning default data. Run billing_and_usage_schema.sql migration.');
+      usage = {
+        total_requests: 0,
+        total_messages: 0,
+        total_tokens: 0,
+        total_tokens_input: 0,
+        total_tokens_output: 0,
+        total_cost: 0
+      };
+    }
 
     // Get subscription details
-    const { data: subscription, error: subError } = await supabase
-      .from('subscriptions')
-      .select(`
-        *,
-        plan:subscription_plans(*)
-      `)
-      .eq('business_id', businessId)
-      .single();
+    try {
+      const { data: sub, error: subError } = await supabase
+        .from('subscriptions')
+        .select(`
+          *,
+          plan:subscription_plans(*)
+        `)
+        .eq('business_id', businessId)
+        .single();
 
-    if (subError && subError.code !== 'PGRST116') throw subError;
+      if (subError && subError.code !== 'PGRST116') throw subError;
+      subscription = sub;
+    } catch (err) {
+      logger.warn('Subscription tables not found, returning null. Run billing_and_usage_schema.sql migration.');
+      subscription = null;
+    }
 
     const response = {
       success: true,
@@ -54,7 +75,13 @@ router.get('/:businessId/usage/history', async (req, res) => {
     const { businessId } = req.params;
     const months = parseInt(req.query.months) || 6;
 
-    const history = await usageTrackingService.getUsageHistory(businessId, months);
+    let history;
+    try {
+      history = await usageTrackingService.getUsageHistory(businessId, months);
+    } catch (err) {
+      logger.warn('Usage tables not found, returning empty history. Run billing_and_usage_schema.sql migration.');
+      history = [];
+    }
 
     res.json({ success: true, data: history });
   } catch (error) {
@@ -94,7 +121,13 @@ router.get('/:businessId/alerts', async (req, res) => {
   try {
     const { businessId } = req.params;
 
-    const alerts = await usageTrackingService.getUnreadAlerts(businessId);
+    let alerts;
+    try {
+      alerts = await usageTrackingService.getUnreadAlerts(businessId);
+    } catch (err) {
+      logger.warn('Alert tables not found, returning empty alerts. Run billing_and_usage_schema.sql migration.');
+      alerts = [];
+    }
 
     res.json({ success: true, data: alerts });
   } catch (error) {
