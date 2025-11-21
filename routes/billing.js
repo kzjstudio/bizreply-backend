@@ -1,14 +1,9 @@
 import express from 'express';
-import { createClient } from '@supabase/supabase-js';
+import { supabase } from '../src/services/supabase.service.js';
 import { logger } from '../src/utils/logger.js';
 import usageTrackingService from '../services/usage-tracking.service.js';
 
 const router = express.Router();
-
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_KEY
-);
 
 /**
  * GET /api/billing/:businessId/usage/current
