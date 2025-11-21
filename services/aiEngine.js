@@ -293,8 +293,11 @@ class AIEngine {
             .eq('is_active', true);
           if (!error && allProducts && allProducts.length > 0) {
             // Try to match products by name or description to the user's query
-            // Tokenize query and match if any keyword is in product name/description (case-insensitive, ignore plural/singular)
-            const queryWords = customerMessage.toLowerCase().split(/\W+/).filter(Boolean).map(w => w.replace(/s$/, ''));
+            // Tokenize query, remove stopwords/short words, and match if any keyword is in product name/description
+            const stopwords = new Set(['the','of','and','a','an','to','in','on','for','with','at','by','from','up','about','into','over','after','under','above','below','can','you','me','is','are','do','does','did','i','we','they','he','she','it','this','that','these','those','as','be','have','has','had','will','would','should','could','may','might','must','shall','or','so','but','if','then','than','too','very','just','not','no','yes','was','were','been','being','your','my','our','their','his','her','its','which','who','whom','whose','what','when','where','why','how']);
+            let queryWords = customerMessage.toLowerCase().split(/\W+/)
+              .filter(w => w && w.length > 2 && !stopwords.has(w))
+              .map(w => w.replace(/s$/, ''));
             let colorMap = {};
             allProducts.forEach(p => {
               const name = (p.name || '').toLowerCase();
@@ -302,7 +305,8 @@ class AIEngine {
               // Remove plural 's' for matching
               const nameBase = name.replace(/s\b/g, '');
               const descBase = desc.replace(/s\b/g, '');
-              const matches = queryWords.some(word => nameBase.includes(word) || descBase.includes(word));
+              // Only match if at least one non-stopword keyword is found
+              const matches = queryWords.length > 0 && queryWords.some(word => nameBase.includes(word) || descBase.includes(word));
               if (matches && p.variant_options && typeof p.variant_options === 'object') {
                 Object.entries(p.variant_options).forEach(([key, values]) => {
                   if (/color|colou?r/i.test(key) && Array.isArray(values)) {
