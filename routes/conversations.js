@@ -110,18 +110,23 @@ router.get('/:businessId/escalated', async (req, res) => {
 router.get('/:businessId/:conversationId/messages', async (req, res) => {
   try {
     const { conversationId } = req.params;
-    const { limit = 100, offset = 0 } = req.query;
+    const limit = parseInt(req.query.limit) || 100;
 
+    // Get the latest messages by ordering descending and limiting
+    // Frontend will display them in chronological order
     const { data: messages, error } = await supabase
       .from('messages')
       .select('*')
       .eq('conversation_id', conversationId)
-      .order('timestamp', { ascending: true })
-      .range(offset, offset + limit - 1);
+      .order('timestamp', { ascending: false })
+      .limit(limit);
 
     if (error) throw error;
 
-    res.json({ success: true, data: messages });
+    // Reverse to chronological order (oldest first)
+    const chronologicalMessages = messages.reverse();
+
+    res.json({ success: true, data: chronologicalMessages });
   } catch (error) {
     logger.error('Error fetching messages:', error);
     res.status(500).json({ success: false, error: error.message });
