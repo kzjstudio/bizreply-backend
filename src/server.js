@@ -11,6 +11,7 @@ import conversationsRoutes from '../routes/conversations.js';
 import { initializeFirebase } from './config/firebase.config.js';
 import { logger } from './utils/logger.js';
 import productSyncService from '../services/productSyncService.js';
+import conversationAutoReleaseService from '../services/conversation-auto-release.service.js';
 import integrationsRoutes from '../routes/integrations.js';
 
 // Load environment variables
@@ -80,6 +81,9 @@ app.listen(PORT, () => {
   
   // Start product sync service
   productSyncService.startPeriodicSync();
+  
+  // Start conversation auto-release cron job
+  conversationAutoReleaseService.startCronJob();
 });
 
 // Graceful shutdown
