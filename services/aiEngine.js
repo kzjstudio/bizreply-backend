@@ -133,7 +133,9 @@ class AIEngine {
    * Build dynamic system prompt with business rules and product data
    */
   buildSystemPrompt(businessConfig, products) {
-    let systemPrompt = `You are an AI assistant for ${businessConfig.businessName}.`;
+    let systemPrompt = `You are an AI assistant for ${businessConfig.businessName}.
+
+  IMPORTANT: If a customer asks for a product link or URL, you MUST always reply with the direct product_url. Do not say you cannot provide links. If a product has a product_url, you must always include it in your response. Never refuse to provide a product link if it is available.`;
 
     // Add business description
     if (businessConfig.description) {
@@ -254,6 +256,17 @@ class AIEngine {
         5
       );
 
+      // --- Verify product context: Log and check for correct product and URL ---
+      if (products && products.length > 0) {
+        const missingUrl = products.filter(p => !p.product_url).map(p => p.product_name || p.name);
+        if (missingUrl.length > 0) {
+          console.warn('[AIEngine] Some products are missing product_url:', missingUrl);
+        }
+        // Log the products array for debugging
+        console.log('[AIEngine] Products context for prompt:', JSON.stringify(products, null, 2));
+      } else {
+        console.warn('[AIEngine] No relevant products found for context:', customerMessage);
+      }
 
       // Fallback: If no products found and message mentions price, try direct price filter
       if (products.length === 0 && /under|below|less than|\$\d+/.test(customerMessage.toLowerCase())) {
@@ -270,6 +283,9 @@ class AIEngine {
 
       // 4. Build dynamic system prompt
       const systemPrompt = this.buildSystemPrompt(businessConfig, products);
+
+      // --- Log the final system prompt for debugging ---
+      console.log('[AIEngine] Final system prompt for OpenAI:', systemPrompt);
 
       // 5. Build conversation messages
       const messages = this.buildConversationMessages(
