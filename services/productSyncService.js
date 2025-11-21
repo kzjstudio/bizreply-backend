@@ -1,6 +1,8 @@
+
 import { createClient } from '@supabase/supabase-js';
 import OpenAI from 'openai';
 import dotenv from 'dotenv';
+import axios from 'axios';
 
 dotenv.config();
 
@@ -82,9 +84,43 @@ class ProductSyncService {
     }
   }
 
+
   async syncProduct(product) {
     try {
-      const normalizedData = this.normalizeProductData(product);
+      // Fetch permalink from WooCommerce API
+      let productUrl = null;
+      try {
+        const wooBaseUrl = process.env.WC_API_BASE_URL;
+        const wooConsumerKey = process.env.WC_CONSUMER_KEY;
+        const wooConsumerSecret = process.env.WC_CONSUMER_SECRET;
+        if (wooBaseUrl && wooConsumerKey && wooConsumerSecret && product.external_id) {
+          const wcRes = await axios.get(
+            `${wooBaseUrl}/wp-json/wc/v3/products/${product.external_id}`,
+            {
+              auth: {
+                username: wooConsumerKey,
+                password: wooConsumerSecret
+              }
+            }
+          );
+          productUrl = wcRes.data.permalink || null;
+        }
+      } catch (err) {
+        console.warn('Could not fetch WooCommerce permalink for product', product.id, err.message);
+      }
+
+      // Always include product_url in update
+      const updatePayload = { ...product };
+      if (productUrl) {
+        updatePayload.product_url = productUrl;
+      }
+
+      await supabase
+        .from('products')
+        .update(updatePayload)
+        .eq('id', product.id);
+
+      const normalizedData = this.normalizeProductData({ ...product, product_url: productUrl });
       const embeddingText = this.createEmbeddingText(normalizedData);
       const embedding = await this.createEmbedding(embeddingText);
 

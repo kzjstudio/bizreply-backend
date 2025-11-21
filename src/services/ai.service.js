@@ -77,6 +77,7 @@ IMPORTANT GUIDELINES:
 - Use the business information provided below to answer questions
 - If you don't know something, politely say so and offer to connect them with a human
 - Never make up information not provided in the business rules
+- You are allowed and encouraged to share links and product URLs in your responses when relevant.
 
 `;
 
@@ -97,8 +98,19 @@ IMPORTANT GUIDELINES:
   // Add templates/common responses
   if (templates && Object.keys(templates).length > 0) {
     prompt += `\nCOMMON INFORMATION:\n`;
+    // If products are present in templates, include them with URLs
+    if (Array.isArray(templates.products) && templates.products.length > 0) {
+      templates.products.forEach((p, idx) => {
+        prompt += `${idx + 1}. ${p.name}`;
+        if (p.price) prompt += ` - $${p.price}`;
+        if (p.product_url) prompt += `\n   Product Link: ${p.product_url}`;
+        prompt += `\n`;
+      });
+    }
     Object.entries(templates).forEach(([key, value]) => {
-      prompt += `${key}: ${value}\n`;
+      if (key !== 'products') {
+        prompt += `${key}: ${value}\n`;
+      }
     });
   }
 
@@ -112,9 +124,19 @@ const generateFallbackResponse = (message, templates) => {
   const lowerMessage = message.toLowerCase();
 
   // Simple keyword matching
-  if (lowerMessage.includes('price') || lowerMessage.includes('cost') || lowerMessage.includes('how much')) {
-    return templates?.priceList || 
-      'Thank you for your inquiry! Please let me know which product or service you\'re interested in, and I\'ll provide pricing details.';
+  if (lowerMessage.includes('price') || lowerMessage.includes('cost') || lowerMessage.includes('how much') || lowerMessage.includes('product') || lowerMessage.includes('link')) {
+    // Attempt to include product URLs if available in templates
+    if (templates?.products && Array.isArray(templates.products) && templates.products.length > 0) {
+      const productLines = templates.products.map((p, idx) => {
+        let line = `${idx + 1}. ${p.name}`;
+        if (p.price) line += ` - $${p.price}`;
+        if (p.product_url) line += `\n   Product Link: ${p.product_url}`;
+        return line;
+      });
+      return `Here are some products you may be interested in:\n${productLines.join('\n')}`;
+    }
+    return templates?.priceList ||
+      'Thank you for your inquiry! Please let me know which product or service you\'re interested in, and I\'ll provide pricing details and a product link.';
   }
 
   if (lowerMessage.includes('hours') || lowerMessage.includes('open') || lowerMessage.includes('when')) {

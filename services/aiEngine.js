@@ -59,8 +59,11 @@ class AIEngine {
         conversationContext,
         limit
       );
-
-      return products;
+      // Ensure product_url is always present in the returned product objects
+      return (products || []).map(p => ({
+        ...p,
+        product_url: p.product_url || p.permalink || ''
+      }));
     } catch (error) {
       console.error('Error getting relevant products:', error);
       return [];
@@ -95,7 +98,8 @@ class AIEngine {
         external_id: p.external_id,
         sku: p.sku,
         stock_quantity: p.stock_quantity,
-        source_platform: p.source_platform
+        source_platform: p.source_platform,
+        product_url: p.product_url || p.permalink || ''
       }));
     } catch (error) {
       console.error('Error getting products by price:', error);
@@ -180,11 +184,14 @@ class AIEngine {
         if (product.product_description) {
           systemPrompt += `\n   Description: ${product.product_description}`;
         }
+        if (product.product_url) {
+          systemPrompt += `\n   Product Link: ${product.product_url}`;
+        }
       });
 
       systemPrompt += `\n\n PRODUCT RECOMMENDATION RULES:\n`;
       systemPrompt += `- When asked about products, you MUST list ALL products above that match the criteria\n`;
-      systemPrompt += `- ALWAYS include: Product name + Price for each item\n`;
+      systemPrompt += `- ALWAYS include: Product name + Price + Product Link for each item\n`;
       systemPrompt += `- Format as a numbered or bulleted list\n`;
       systemPrompt += `- If customer asks for price range (e.g., under $50), list ALL qualifying products\n`;
       systemPrompt += `- Do NOT say "Here are SOME items" - list them ALL`;
