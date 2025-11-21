@@ -425,7 +425,7 @@ router.get('/:businessId/policies', async (req, res) => {
           `For defective items, we cover return shipping and process refunds immediately upon receipt.`;
 
         // Shipping policy (prefer WP page, else synthesize from shipping zones)
-        policies.shipping_policy = wpPages['shipping']?.plain || (() => {
+        policies.shipping_policy = wpPages['shipping']?.plain || (await (async () => {
           let shippingText = 'We offer the following shipping options:\n\n';
           if (shippingZones.data && shippingZones.data.length > 0) {
             for (const zone of shippingZones.data) {
@@ -451,7 +451,7 @@ router.get('/:businessId/policies', async (req, res) => {
           shippingText += `Orders are typically processed within 1-2 business days. ` +
             `You will receive a tracking number via email once your order ships.`;
           return shippingText;
-        })();
+        })());
 
         // Privacy policy (prefer WP page, else synthesize)
         policies.privacy_policy = wpPages['privacy-policy']?.plain ||
