@@ -1,7 +1,7 @@
 import express from 'express';
 import { createClient } from '@supabase/supabase-js';
-import { logger } from '../utils/logger.js';
-import { sendWhatsAppMessage } from '../services/whatsapp.service.js';
+import { logger } from '../src/utils/logger.js';
+import { sendWhatsAppMessage } from '../src/services/whatsapp.service.js';
 
 const router = express.Router();
 
