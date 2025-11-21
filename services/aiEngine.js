@@ -302,8 +302,8 @@ class AIEngine {
               'bag': ['bag', 'purse', 'tote', 'backpack', 'satchel'],
             };
             
-            // Tokenize query, remove stopwords/short words
-            const stopwords = new Set(['the','of','and','a','an','to','in','on','for','with','at','by','from','up','about','into','over','after','under','above','below','can','you','me','is','are','do','does','did','i','we','they','he','she','it','this','that','these','those','as','be','have','has','had','will','would','should','could','may','might','must','shall','or','so','but','if','then','than','too','very','just','not','no','yes','was','were','been','being','your','my','our','their','his','her','its','which','who','whom','whose','what','when','where','why','how']);
+            // Tokenize query, remove stopwords/short words and color-related words (they're part of the question, not the product)
+            const stopwords = new Set(['the','of','and','a','an','to','in','on','for','with','at','by','from','up','about','into','over','after','under','above','below','can','you','me','is','are','do','does','did','i','we','they','he','she','it','this','that','these','those','as','be','have','has','had','will','would','should','could','may','might','must','shall','or','so','but','if','then','than','too','very','just','not','no','yes','was','were','been','being','your','my','our','their','his','her','its','which','who','whom','whose','what','when','where','why','how','color','colour','option','variant','size','style']);
             let queryWords = customerMessage.toLowerCase().split(/\W+/)
               .filter(w => w && w.length > 2 && !stopwords.has(w))
               .map(w => w.replace(/s$/, ''));
