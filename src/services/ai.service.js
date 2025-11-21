@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { logger } from '../utils/logger.js';
 import { getConversationHistory } from './database.service.js';
+import usageTrackingService from '../../services/usage-tracking.service.js';
 
 /**
  * Generate AI response using OpenAI (you can swap this with other providers)
@@ -10,9 +11,17 @@ export const generateAIResponse = async ({
   customerPhone, 
   businessId, 
   businessRules, 
-  templates 
+  templates,
+  conversationId = null 
 }) => {
   try {
+    // Check if business can make API calls (within limits)
+    const permission = await usageTrackingService.canMakeApiCall(businessId);
+    if (!permission.allowed) {
+      logger.warn(`⚠️  API call blocked for business ${businessId}: ${permission.reason}`);
+      return `I apologize, but your account has ${permission.reason}. Please upgrade your plan to continue.`;
+    }
+
     // Check if AI API key is configured
     if (!process.env.OPENAI_API_KEY) {
       logger.warn('⚠️  No AI API key configured, using fallback response');
@@ -36,10 +45,11 @@ export const generateAIResponse = async ({
     ];
 
     // Call OpenAI API
+    const model = process.env.OPENAI_MODEL || 'gpt-4-turbo-preview'; // or 'gpt-3.5-turbo' for lower cost
     const response = await axios.post(
       'https://api.openai.com/v1/chat/completions',
       {
-        model: 'gpt-4-turbo-preview', // or 'gpt-3.5-turbo' for lower cost
+        model: model,
         messages: messages,
         max_tokens: 500,
         temperature: 0.7
@@ -53,6 +63,20 @@ export const generateAIResponse = async ({
     );
 
     const aiReply = response.data.choices[0].message.content.trim();
+    const usage = response.data.usage;
+
+    // Track usage
+    await usageTrackingService.trackUsage({
+      businessId,
+      conversationId,
+      model: model,
+      tokensInput: usage.prompt_tokens,
+      tokensOutput: usage.completion_tokens,
+      requestType: 'chat_completion',
+      customerPhone,
+      metadata: { messageLength: customerMessage.length }
+    });
+
     logger.info('✅ AI response generated successfully');
     return aiReply;
 

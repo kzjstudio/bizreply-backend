@@ -1,5 +1,6 @@
 import OpenAI from 'openai';
 import { createClient } from '@supabase/supabase-js';
+import usageTrackingService from './usage-tracking.service.js';
 import productSyncService from './productSyncService.js';
 
 const openai = new OpenAI({
@@ -680,7 +681,20 @@ CRITICAL RULES:
         systemPrompt
       );
 
-      // 8. Call OpenAI API
+      // 8. Check usage limits before calling OpenAI
+      const permission = await usageTrackingService.canMakeApiCall(businessId);
+      if (!permission.allowed) {
+        console.warn(`⚠️  API call blocked for business ${businessId}: ${permission.reason}`);
+        return {
+          success: false,
+          response: `Your account has ${permission.reason}. Please upgrade your plan to continue.`,
+          productsRecommended: 0,
+          tokensUsed: 0,
+          limitExceeded: true
+        };
+      }
+
+      // 9. Call OpenAI API
       const completion = await openai.chat.completions.create({
         model: this.model,
         messages: messages,
@@ -693,7 +707,22 @@ CRITICAL RULES:
 
       console.log(`✅ AI response generated: ${aiResponse.substring(0, 100)}...`);
 
-      // 9. Track product recommendations
+      // 10. Track usage
+      await usageTrackingService.trackUsage({
+        businessId,
+        conversationId,
+        model: this.model,
+        tokensInput: completion.usage.prompt_tokens,
+        tokensOutput: completion.usage.completion_tokens,
+        requestType: 'chat_completion',
+        customerPhone,
+        metadata: { 
+          messageLength: customerMessage.length,
+          productsRecommended: products.length
+        }
+      });
+
+      // 11. Track product recommendations
       await this.trackProductRecommendations(
         conversationId,
         businessId,
@@ -701,7 +730,7 @@ CRITICAL RULES:
         aiResponse
       );
 
-      // 10. Audit response for quality control
+      // 12. Audit response for quality control
       await this.auditResponse(
         businessId,
         conversationId,
