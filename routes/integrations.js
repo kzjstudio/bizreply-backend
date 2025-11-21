@@ -143,8 +143,26 @@ router.post('/sync', async (req, res) => {
 
       const products = response.data;
 
-      // Sync each product to database, including product_url (permalink)
+      // Sync each product to database, including product_url (permalink) and variants/options
       for (const product of products) {
+        // Extract variant/option data
+        let has_variants = false;
+        let variant_options = null;
+        let platform_variant_id = null;
+        if (Array.isArray(product.variations) && product.variations.length > 0) {
+          has_variants = true;
+          // Fetch variant details from WooCommerce if needed (optional: can be expanded)
+        }
+        // Extract options/attributes (e.g., size, color)
+        if (Array.isArray(product.attributes) && product.attributes.length > 0) {
+          variant_options = {};
+          product.attributes.forEach(attr => {
+            if (attr.name && Array.isArray(attr.options)) {
+              variant_options[attr.name] = attr.options;
+            }
+          });
+        }
+        // Upsert product with variant/option fields
         const { data, error } = await supabase
           .from('products')
           .upsert({
@@ -162,6 +180,9 @@ router.post('/sync', async (req, res) => {
             source_platform: 'woocommerce',
             updated_at: new Date().toISOString(),
             product_url: product.permalink || null,
+            has_variants,
+            variant_options,
+            platform_variant_id: platform_variant_id || null,
           }, {
             onConflict: 'business_id,external_id',
           });

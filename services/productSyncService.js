@@ -140,6 +140,8 @@ class ProductSyncService {
       price: this.normalizePrice(product.price),
       category: this.normalizeText(product.category),
       imageUrl: product.image_url,
+      has_variants: product.has_variants || false,
+      variant_options: product.variant_options || null,
     };
   }
 
@@ -177,6 +179,13 @@ class ProductSyncService {
 
     if (productData.description) {
       parts.push(`Description: ${productData.description}`);
+    }
+
+    if (productData.has_variants && productData.variant_options) {
+      const options = Object.entries(productData.variant_options)
+        .map(([key, values]) => `${key}: ${Array.isArray(values) ? values.join(', ') : values}`)
+        .join('; ');
+      parts.push(`Available options: ${options}`);
     }
 
     return parts.join('. ');

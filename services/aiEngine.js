@@ -186,6 +186,13 @@ class AIEngine {
         if (product.product_description) {
           systemPrompt += `\n   Description: ${product.product_description}`;
         }
+        // Add product variations/options if available
+        if (product.has_variants && product.variant_options) {
+          const options = Object.entries(product.variant_options)
+            .map(([key, values]) => `${key}: ${Array.isArray(values) ? values.join(', ') : values}`)
+            .join('; ');
+          systemPrompt += `\n   Available options: ${options}`;
+        }
         if (product.product_url) {
           systemPrompt += `\n   Product Link: ${product.product_url}`;
         }
