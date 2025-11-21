@@ -182,10 +182,17 @@ class ProductSyncService {
     }
 
     if (productData.has_variants && productData.variant_options) {
+      // Only include actual options from the store, not generic guesses
       const options = Object.entries(productData.variant_options)
-        .map(([key, values]) => `${key}: ${Array.isArray(values) ? values.join(', ') : values}`)
+        .map(([key, values]) => {
+          // Filter out empty or null values
+          const filtered = Array.isArray(values) ? values.filter(v => v && v.trim()) : values;
+          return `${key}: ${Array.isArray(filtered) ? filtered.join(', ') : filtered}`;
+        })
         .join('; ');
-      parts.push(`Available options: ${options}`);
+      if (options && options.trim()) {
+        parts.push(`Available options: ${options}`);
+      }
     }
 
     return parts.join('. ');

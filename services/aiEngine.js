@@ -188,10 +188,19 @@ class AIEngine {
         }
         // Add product variations/options if available
         if (product.has_variants && product.variant_options) {
+          // Only include actual options from the store, not generic guesses
           const options = Object.entries(product.variant_options)
-            .map(([key, values]) => `${key}: ${Array.isArray(values) ? values.join(', ') : values}`)
+            .map(([key, values]) => {
+              // Filter out empty or null values
+              const filtered = Array.isArray(values) ? values.filter(v => v && v.trim()) : values;
+              return `${key}: ${Array.isArray(filtered) ? filtered.join(', ') : filtered}`;
+            })
             .join('; ');
-          systemPrompt += `\n   Available options: ${options}`;
+          if (options && options.trim()) {
+            systemPrompt += `\n   Available options: ${options}`;
+          }
+          // Add explicit instruction to only mention options/colors that exist for each product
+          systemPrompt += `\n   IMPORTANT: Only mention options/colors that are actually available for each product. Do NOT guess or invent options.`;
         }
         if (product.product_url) {
           systemPrompt += `\n   Product Link: ${product.product_url}`;
