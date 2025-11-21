@@ -293,12 +293,17 @@ class AIEngine {
             .eq('is_active', true);
           if (!error && allProducts && allProducts.length > 0) {
             // Try to match products by name or description to the user's query
-            const query = customerMessage.toLowerCase();
+            // Tokenize query and match if any keyword is in product name/description (case-insensitive, ignore plural/singular)
+            const queryWords = customerMessage.toLowerCase().split(/\W+/).filter(Boolean).map(w => w.replace(/s$/, ''));
             let colorMap = {};
             allProducts.forEach(p => {
-              const nameMatch = p.name && p.name.toLowerCase().includes(query);
-              const descMatch = p.description && p.description.toLowerCase().includes(query);
-              if ((nameMatch || descMatch) && p.variant_options && typeof p.variant_options === 'object') {
+              const name = (p.name || '').toLowerCase();
+              const desc = (p.description || '').toLowerCase();
+              // Remove plural 's' for matching
+              const nameBase = name.replace(/s\b/g, '');
+              const descBase = desc.replace(/s\b/g, '');
+              const matches = queryWords.some(word => nameBase.includes(word) || descBase.includes(word));
+              if (matches && p.variant_options && typeof p.variant_options === 'object') {
                 Object.entries(p.variant_options).forEach(([key, values]) => {
                   if (/color|colou?r/i.test(key) && Array.isArray(values)) {
                     if (!colorMap[p.name]) colorMap[p.name] = [];
