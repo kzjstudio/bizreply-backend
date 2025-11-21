@@ -77,7 +77,9 @@ IMPORTANT GUIDELINES:
 - Use the business information provided below to answer questions
 - If you don't know something, politely say so and offer to connect them with a human
 - Never make up information not provided in the business rules
-- You are allowed and encouraged to share links and product URLs in your responses when relevant.
+- **If a product has a product_url or link, you MUST always include the product link in your response.**
+- If a customer asks for a product link, always provide the direct product_url if available.
+- You are required to share links and product URLs in your responses whenever possible.
 
 `;
 
@@ -103,7 +105,10 @@ IMPORTANT GUIDELINES:
       templates.products.forEach((p, idx) => {
         prompt += `${idx + 1}. ${p.name}`;
         if (p.price) prompt += ` - $${p.price}`;
-        if (p.product_url) prompt += `\n   Product Link: ${p.product_url}`;
+        if (p.product_url) {
+          prompt += `\n   Product Link: ${p.product_url}`;
+          prompt += `\n   (You MUST always include this link in your response if the customer asks for this product or a link)`;
+        }
         prompt += `\n`;
       });
     }
