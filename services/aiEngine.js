@@ -346,12 +346,17 @@ class AIEngine {
               }
             });
             
-            // Sort by score and take top matches
+            // Sort by score and take ONLY top matches (score threshold)
             productScores.sort((a, b) => b.score - a.score);
             console.log(`[AIEngine] Color fallback - Found ${productScores.length} matching products`);
             
+            // Only use products with score >= 10 (exact name match) OR top 2 if none meet threshold
+            const minScore = productScores.length > 0 && productScores[0].score >= 10 ? 10 : 0;
+            const topMatches = productScores.filter(p => p.score >= minScore).slice(0, 3);
+            console.log(`[AIEngine] Color fallback - Using ${topMatches.length} top-scored products (min score: ${minScore})`);
+            
             let colorMap = {};
-            productScores.forEach(({ product: p }) => {
+            topMatches.forEach(({ product: p }) => {
               Object.entries(p.variant_options).forEach(([key, values]) => {
                 if (/color|colou?r/i.test(key) && Array.isArray(values)) {
                   if (!colorMap[p.name]) colorMap[p.name] = [];

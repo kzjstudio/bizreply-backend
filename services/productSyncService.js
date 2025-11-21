@@ -167,6 +167,8 @@ class ProductSyncService {
 
     if (productData.name) {
       parts.push(`Product: ${productData.name}`);
+      // Repeat product name for better matching
+      parts.push(productData.name);
     }
 
     if (productData.category) {
@@ -181,17 +183,29 @@ class ProductSyncService {
       parts.push(`Description: ${productData.description}`);
     }
 
+    // EMPHASIZE color/variant information for better semantic search matching
     if (productData.has_variants && productData.variant_options) {
       // Only include actual options from the store, not generic guesses
-      const options = Object.entries(productData.variant_options)
+      const optionEntries = Object.entries(productData.variant_options)
         .map(([key, values]) => {
           // Filter out empty or null values
           const filtered = Array.isArray(values) ? values.filter(v => v && v.trim()) : values;
-          return `${key}: ${Array.isArray(filtered) ? filtered.join(', ') : filtered}`;
+          if (!filtered || (Array.isArray(filtered) && filtered.length === 0)) return null;
+          return { key, values: filtered };
         })
-        .join('; ');
-      if (options && options.trim()) {
-        parts.push(`Available options: ${options}`);
+        .filter(Boolean);
+      
+      if (optionEntries.length > 0) {
+        // Add multiple mentions for better semantic matching
+        optionEntries.forEach(({ key, values }) => {
+          const valueStr = Array.isArray(values) ? values.join(', ') : values;
+          parts.push(`${key}: ${valueStr}`);
+          parts.push(`Available ${key.toLowerCase()}: ${valueStr}`);
+          // Add individual color mentions for even better matching
+          if (/color|colou?r/i.test(key) && Array.isArray(values)) {
+            values.forEach(color => parts.push(`${color} color available`));
+          }
+        });
       }
     }
 
