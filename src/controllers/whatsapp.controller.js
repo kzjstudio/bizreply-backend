@@ -1,6 +1,6 @@
 import { sendWhatsAppMessage, parseTwilioWebhook, parseMetaWebhook } from '../services/whatsapp.service.js';
 import { generateAIResponse, detectEscalationRequest } from '../services/ai.service.js';
-import { saveMessage, getBusinessByPhone, getOrCreateConversation, updateConversationEscalation } from '../services/supabase.service.js';
+import { saveMessage, getBusinessByPhone, getOrCreateConversation, updateConversationEscalation, getConversationMode } from '../services/supabase.service.js';
 import { logger } from '../utils/logger.js';
 import aiEngine from '../../services/aiEngine.js';
 
@@ -142,6 +142,19 @@ async function processTwilioMessage(parsedMessage, phoneNumberId) {
 
   await saveMessage({    messageSid: messageId,    businessId: business.id,    customerPhone: from,    direction: 'incoming',    messageText: message,    fromPhone: from,    toPhone: phoneNumberId  });
 
+  // Check conversation mode - if human is handling it, don't send AI response
+  const conversationMode = await getConversationMode(conversationId);
+  
+  if (conversationMode.mode === 'human') {
+    logger.info(`👤 Human mode active for conversation ${conversationId} - AI will not respond`);
+    return; // Human is handling this conversation, skip AI response
+  }
+
+  if (conversationMode.mode === 'paused') {
+    logger.info(`⏸️ Conversation ${conversationId} is paused - no response sent`);
+    return; // Conversation paused, skip response
+  }
+
   // Check if customer is requesting human assistance
   const escalation = detectEscalationRequest(message);
   
@@ -179,7 +192,7 @@ async function processTwilioMessage(parsedMessage, phoneNumberId) {
     return;
   }
 
-  // Use AI Engine with product recommendations
+  // AI mode - generate and send response
   const aiResult = await aiEngine.generateResponse(
     business.id,
     conversationId,
@@ -244,7 +257,57 @@ async function handleMetaWebhook(body) {
             type: messageType
           });
 
-          // Use AI Engine with product recommendations
+          // Check conversation mode - if human is handling it, don't send AI response
+          const conversationMode = await getConversationMode(conversationId);
+          
+          if (conversationMode.mode === 'human') {
+            logger.info(`👤 Human mode active for conversation ${conversationId} - AI will not respond`);
+            continue; // Human is handling this conversation, skip AI response
+          }
+
+          if (conversationMode.mode === 'paused') {
+            logger.info(`⏸️ Conversation ${conversationId} is paused - no response sent`);
+            continue; // Conversation paused, skip response
+          }
+
+          // Check if customer is requesting human assistance
+          const escalation = detectEscalationRequest(messageText);
+          
+          if (escalation.isEscalation) {
+            // Flag conversation for escalation
+            await updateConversationEscalation(conversationId, {
+              escalationRequested: true,
+              escalationReason: escalation.reason,
+              escalationCount: 1
+            });
+            
+            // Send acknowledgment message
+            const escalationResponse = "I understand you'd like to speak with someone from our team. I've notified them and someone will get back to you shortly. Thank you for your patience! 🙏";
+            
+            const ackMessage = await sendWhatsAppMessage({
+              to: from,
+              message: escalationResponse,
+              phoneNumberId: value.metadata.phone_number_id
+            });
+
+            if (ackMessage) {
+              await saveMessage({
+                messageId: ackMessage.messageId,
+                businessId: business.id,
+                from: value.metadata.phone_number_id,
+                to: from,
+                messageText: escalationResponse,
+                timestamp: new Date(),
+                direction: 'outgoing',
+                type: 'text'
+              });
+            }
+            
+            logger.info(`🚨 Escalation request from ${from} - conversation ${conversationId}`);
+            continue; // Skip AI response after escalation
+          }
+
+          // AI mode - generate and send response
           const aiResult = await aiEngine.generateResponse(
             business.id,
             conversationId,

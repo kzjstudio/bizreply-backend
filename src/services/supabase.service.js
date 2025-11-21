@@ -142,6 +142,32 @@ export const getConversationHistory = async (businessId, customerPhone, limit = 
 };
 
 /**
+ * Get conversation mode (check if human is handling it)
+ */
+export const getConversationMode = async (conversationId) => {
+  try {
+    const { data, error } = await supabase
+      .from('conversations')
+      .select('mode, escalation_requested')
+      .eq('id', conversationId)
+      .single();
+    
+    if (error) {
+      console.error('[Supabase] Error getting conversation mode:', error);
+      return { mode: 'ai', escalationRequested: false }; // Default to AI mode
+    }
+    
+    return {
+      mode: data?.mode || 'ai',
+      escalationRequested: data?.escalation_requested || false
+    };
+  } catch (error) {
+    console.error('[Supabase] Error in getConversationMode:', error);
+    return { mode: 'ai', escalationRequested: false };
+  }
+};
+
+/**
  * Update conversation escalation status
  */
 export const updateConversationEscalation = async (conversationId, escalationData) => {
@@ -296,6 +322,7 @@ export default {
   updateBusiness,
   getOrCreateConversation,
   getConversationHistory,
+  getConversationMode,
   updateConversationEscalation,
   saveMessage,
   getBusinessProducts,
