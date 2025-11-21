@@ -288,14 +288,17 @@ class AIEngine {
           // Fetch all products for the business
           const { data: allProducts, error } = await supabase
             .from('products')
-            .select('name, variant_options')
+            .select('name, description, variant_options')
             .eq('business_id', businessId)
             .eq('is_active', true);
           if (!error && allProducts && allProducts.length > 0) {
-            // Find all color options for products with color variants
+            // Try to match products by name or description to the user's query
+            const query = customerMessage.toLowerCase();
             let colorMap = {};
             allProducts.forEach(p => {
-              if (p.variant_options && typeof p.variant_options === 'object') {
+              const nameMatch = p.name && p.name.toLowerCase().includes(query);
+              const descMatch = p.description && p.description.toLowerCase().includes(query);
+              if ((nameMatch || descMatch) && p.variant_options && typeof p.variant_options === 'object') {
                 Object.entries(p.variant_options).forEach(([key, values]) => {
                   if (/color|colou?r/i.test(key) && Array.isArray(values)) {
                     if (!colorMap[p.name]) colorMap[p.name] = [];
@@ -319,7 +322,7 @@ class AIEngine {
             } else {
               return {
                 success: true,
-                response: "Sorry, I couldn't find any color options for our products.",
+                response: "Sorry, I couldn't find any color options for that product.",
                 productsRecommended: 0,
                 tokensUsed: 0,
               };
