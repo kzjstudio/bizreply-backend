@@ -1,8 +1,16 @@
+
+import express from 'express';
 import axios from 'axios';
-/**
- * GET /api/integrations/status/:businessId
- * Aggregates integration status, credential keys, policy availability, and diagnostics
- */
+import pkg from '@woocommerce/woocommerce-rest-api';
+const WooCommerce = pkg.default;
+import { supabase } from '../src/services/supabase.service.js';
+import productSyncService from '../services/productSyncService.js';
+
+const router = express.Router();
+
+// All route definitions must come after router is initialized
+// GET /api/integrations/status/:businessId
+// Aggregates integration status, credential keys, policy availability, and diagnostics
 router.get('/status/:businessId', async (req, res) => {
   try {
     const { businessId } = req.params;
@@ -35,13 +43,6 @@ router.get('/status/:businessId', async (req, res) => {
     res.status(500).json({ error: 'Internal server error', details: e.message });
   }
 });
-import express from 'express';
-import pkg from '@woocommerce/woocommerce-rest-api';
-const WooCommerce = pkg.default;
-import { supabase } from '../src/services/supabase.service.js';
-import productSyncService from '../services/productSyncService.js';
-
-const router = express.Router();
 
 /**
  * POST /api/integrations/connect
