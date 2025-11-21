@@ -143,7 +143,7 @@ router.post('/sync', async (req, res) => {
 
       const products = response.data;
 
-      // Sync each product to database
+      // Sync each product to database, including product_url (permalink)
       for (const product of products) {
         const { data, error } = await supabase
           .from('products')
@@ -161,6 +161,7 @@ router.post('/sync', async (req, res) => {
             is_active: product.status === 'publish',
             source_platform: 'woocommerce',
             updated_at: new Date().toISOString(),
+            product_url: product.permalink || null,
           }, {
             onConflict: 'business_id,external_id',
           });
