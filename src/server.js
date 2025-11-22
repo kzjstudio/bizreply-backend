@@ -13,6 +13,7 @@ import { initializeFirebase } from './config/firebase.config.js';
 import { logger } from './utils/logger.js';
 import productSyncService from '../services/productSyncService.js';
 import conversationAutoReleaseService from '../services/conversation-auto-release.service.js';
+import subscriptionManagementService from '../services/subscription-management.service.js';
 import integrationsRoutes from '../routes/integrations.js';
 
 // Load environment variables
@@ -86,12 +87,17 @@ app.listen(PORT, () => {
   
   // Start conversation auto-release cron job
   conversationAutoReleaseService.startCronJob();
+  
+  // Start subscription management cron job
+  subscriptionManagementService.startCronJob();
 });
 
 // Graceful shutdown
 process.on('SIGTERM', () => {
   console.log('SIGTERM received, shutting down gracefully...');
   productSyncService.stopPeriodicSync();
+  conversationAutoReleaseService.stopCronJob();
+  subscriptionManagementService.stopCronJob();
   process.exit(0);
 });
 

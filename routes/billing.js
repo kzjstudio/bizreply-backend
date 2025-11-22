@@ -310,4 +310,63 @@ router.get('/:businessId/invoices', async (req, res) => {
   }
 });
 
+/**
+ * GET /api/billing/:businessId/subscription/status
+ * Get detailed subscription status including renewal info
+ */
+router.get('/:businessId/subscription/status', async (req, res) => {
+  try {
+    const { businessId } = req.params;
+
+    const { data: subscription, error } = await supabase
+      .from('subscriptions')
+      .select(`
+        *,
+        plan:subscription_plans(*)
+      `)
+      .eq('business_id', businessId)
+      .single();
+
+    if (error && error.code !== 'PGRST116') throw error;
+
+    if (!subscription) {
+      return res.json({
+        success: true,
+        data: {
+          hasSubscription: false,
+          status: 'none'
+        }
+      });
+    }
+
+    const now = new Date();
+    const periodEnd = new Date(subscription.current_period_end);
+    const daysUntilRenewal = Math.ceil((periodEnd - now) / (1000 * 60 * 60 * 24));
+    
+    let trialDaysRemaining = null;
+    if (subscription.trial_end) {
+      const trialEnd = new Date(subscription.trial_end);
+      trialDaysRemaining = Math.ceil((trialEnd - now) / (1000 * 60 * 60 * 24));
+    }
+
+    const statusInfo = {
+      hasSubscription: true,
+      subscription: subscription,
+      status: subscription.status,
+      isActive: subscription.status === 'active' || subscription.status === 'trial',
+      willRenew: !subscription.cancel_at_period_end,
+      daysUntilRenewal,
+      renewalDate: subscription.current_period_end,
+      trialDaysRemaining,
+      isExpiringSoon: daysUntilRenewal <= 7 && daysUntilRenewal > 0,
+      isExpired: now >= periodEnd
+    };
+
+    res.json({ success: true, data: statusInfo });
+  } catch (error) {
+    logger.error('Error fetching subscription status:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 export default router;

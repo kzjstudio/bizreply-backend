@@ -141,6 +141,200 @@ class NotificationService {
   }
 
   /**
+   * Send renewal reminder notification
+   */
+  async sendRenewalReminderNotification(businessId, renewalData) {
+    try {
+      const { data: business, error } = await supabase
+        .from('businesses')
+        .select('business_name, contact_email')
+        .eq('id', businessId)
+        .single();
+
+      if (error || !business) return;
+
+      const { daysRemaining, planName, amount, renewalDate } = renewalData;
+
+      logger.info(`
+╔═══════════════════════════════════════════════════════════╗
+║           📅 RENEWAL REMINDER                             ║
+╠═══════════════════════════════════════════════════════════╣
+║ Business: ${business.business_name.padEnd(47)}║
+║ Plan: ${planName.padEnd(51)}║
+║ Renewal in: ${daysRemaining} days${' '.repeat(45 - daysRemaining.toString().length)}║
+║ Amount: $${amount}${' '.repeat(50 - amount.toString().length)}║
+║                                                           ║
+║ Your subscription will renew automatically on:           ║
+║ ${new Date(renewalDate).toLocaleDateString()}${' '.repeat(43 - new Date(renewalDate).toLocaleDateString().length)}║
+╚═══════════════════════════════════════════════════════════╝
+      `);
+
+      await this.logNotification(businessId, {
+        type: 'renewal_reminder',
+        channel: 'console',
+        recipient: business.contact_email,
+        data: renewalData,
+        status: 'sent'
+      });
+    } catch (error) {
+      logger.error('Error sending renewal reminder:', error);
+    }
+  }
+
+  /**
+   * Send trial ending notification
+   */
+  async sendTrialEndingNotification(businessId, trialData) {
+    try {
+      const { data: business, error } = await supabase
+        .from('businesses')
+        .select('business_name, contact_email')
+        .eq('id', businessId)
+        .single();
+
+      if (error || !business) return;
+
+      logger.info(`
+╔═══════════════════════════════════════════════════════════╗
+║           ⏰ TRIAL ENDING SOON                            ║
+╠═══════════════════════════════════════════════════════════╣
+║ Business: ${business.business_name.padEnd(47)}║
+║ Trial ends in: ${trialData.daysRemaining} days${' '.repeat(38 - trialData.daysRemaining.toString().length)}║
+║                                                           ║
+║ Add a payment method to continue using ${trialData.planName}${' '.repeat(17 - trialData.planName.length)}║
+╚═══════════════════════════════════════════════════════════╝
+      `);
+
+      await this.logNotification(businessId, {
+        type: 'trial_ending',
+        channel: 'console',
+        recipient: business.contact_email,
+        data: trialData,
+        status: 'sent'
+      });
+    } catch (error) {
+      logger.error('Error sending trial ending notification:', error);
+    }
+  }
+
+  /**
+   * Send payment failed notification
+   */
+  async sendPaymentFailedNotification(businessId, paymentData) {
+    try {
+      const { data: business, error } = await supabase
+        .from('businesses')
+        .select('business_name, contact_email')
+        .eq('id', businessId)
+        .single();
+
+      if (error || !business) return;
+
+      logger.warn(`
+╔═══════════════════════════════════════════════════════════╗
+║           ❌ PAYMENT FAILED                               ║
+╠═══════════════════════════════════════════════════════════╣
+║ Business: ${business.business_name.padEnd(47)}║
+║ Plan: ${paymentData.planName.padEnd(51)}║
+║ Amount: $${paymentData.amount}${' '.repeat(50 - paymentData.amount.toString().length)}║
+║                                                           ║
+║ Your subscription renewal payment failed.                ║
+║ Please update your payment method to continue service.   ║
+║                                                           ║
+║ 💳 Update Payment: https://bizreply.ai/billing          ║
+╚═══════════════════════════════════════════════════════════╝
+      `);
+
+      await this.logNotification(businessId, {
+        type: 'payment_failed',
+        channel: 'console',
+        recipient: business.contact_email,
+        data: paymentData,
+        status: 'sent'
+      });
+    } catch (error) {
+      logger.error('Error sending payment failed notification:', error);
+    }
+  }
+
+  /**
+   * Send renewal success notification
+   */
+  async sendRenewalSuccessNotification(businessId, renewalData) {
+    try {
+      const { data: business, error } = await supabase
+        .from('businesses')
+        .select('business_name, contact_email')
+        .eq('id', businessId)
+        .single();
+
+      if (error || !business) return;
+
+      logger.info(`
+╔═══════════════════════════════════════════════════════════╗
+║           ✅ SUBSCRIPTION RENEWED                         ║
+╠═══════════════════════════════════════════════════════════╣
+║ Business: ${business.business_name.padEnd(47)}║
+║ Plan: ${renewalData.planName.padEnd(51)}║
+║ Next billing: ${new Date(renewalData.nextBillingDate).toLocaleDateString()}${' '.repeat(43 - new Date(renewalData.nextBillingDate).toLocaleDateString().length)}║
+║                                                           ║
+║ Thank you for continuing with BizReply AI!               ║
+╚═══════════════════════════════════════════════════════════╝
+      `);
+
+      await this.logNotification(businessId, {
+        type: 'renewal_success',
+        channel: 'console',
+        recipient: business.contact_email,
+        data: renewalData,
+        status: 'sent'
+      });
+    } catch (error) {
+      logger.error('Error sending renewal success notification:', error);
+    }
+  }
+
+  /**
+   * Send subscription cancelled notification
+   */
+  async sendSubscriptionCancelledNotification(businessId, cancellationData) {
+    try {
+      const { data: business, error } = await supabase
+        .from('businesses')
+        .select('business_name, contact_email')
+        .eq('id', businessId)
+        .single();
+
+      if (error || !business) return;
+
+      logger.info(`
+╔═══════════════════════════════════════════════════════════╗
+║           ⚠️  SUBSCRIPTION CANCELLED                      ║
+╠═══════════════════════════════════════════════════════════╣
+║ Business: ${business.business_name.padEnd(47)}║
+║ Previous Plan: ${cancellationData.planName.padEnd(42)}║
+║                                                           ║
+║ Your subscription has been cancelled and downgraded      ║
+║ to the Free plan. You can upgrade anytime to restore     ║
+║ full features.                                           ║
+║                                                           ║
+║ 🔄 Reactivate: https://bizreply.ai/billing              ║
+╚═══════════════════════════════════════════════════════════╝
+      `);
+
+      await this.logNotification(businessId, {
+        type: 'subscription_cancelled',
+        channel: 'console',
+        recipient: business.contact_email,
+        data: cancellationData,
+        status: 'sent'
+      });
+    } catch (error) {
+      logger.error('Error sending cancellation notification:', error);
+    }
+  }
+
+  /**
    * Generate HTML email for usage limit alert
    */
   generateLimitEmailHTML(business, alertData) {
