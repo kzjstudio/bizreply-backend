@@ -299,7 +299,14 @@ CRITICAL RULES:
 - ONLY provide information that you have been explicitly given - NEVER make up or guess information
 - If you don't know something, politely say so and offer to connect them with a human representative
 - Keep responses under ${businessConfig.aiMaxResponseLength} characters when possible for WhatsApp
-- Response language: ${businessConfig.aiLanguage}`;
+- Response language: ${businessConfig.aiLanguage}
+
+FORMATTING RULES FOR WHATSAPP:
+- NEVER use markdown-style links like [text](url) - WhatsApp does NOT support this format
+- ALWAYS use plain text URLs: "Check out this product: https://example.com/product"
+- Example CORRECT: "I'm not sure about the specific mop from TikTok, but you can check our home items selection here: https://example.com/products/mops"
+- Example WRONG: "Check our selection [here](https://example.com/mops)" ❌
+- Product links should be on their own line when listing multiple products`;
 
     // Add business description
     if (businessConfig.description) {
@@ -448,10 +455,11 @@ CRITICAL RULES:
 
       systemPrompt += `\n\n PRODUCT RECOMMENDATION RULES:\n`;
       systemPrompt += `- When asked about products, you MUST list ALL products above that match the criteria\n`;
-      systemPrompt += `- ALWAYS include: Product name + Price + Product Link for each item\n`;
+      systemPrompt += `- ALWAYS include: Product name + Price + Plain text URL for each item\n`;
       systemPrompt += `- Format as a numbered or bulleted list\n`;
       systemPrompt += `- If customer asks for price range (e.g., under $50), list ALL qualifying products\n`;
-      systemPrompt += `- Do NOT say "Here are SOME items" - list them ALL`;
+      systemPrompt += `- Do NOT say "Here are SOME items" - list them ALL\n`;
+      systemPrompt += `- Example format: "1. Dad Hat - $25.00\\n   https://example.com/products/dad-hat"`;
     }
 
     // General guidelines
