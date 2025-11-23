@@ -1,6 +1,7 @@
 import { supabase } from '../src/services/supabase.service.js';
 import { logger } from '../src/utils/logger.js';
 import notificationService from './notification.service.js';
+import fygaroService from './fygaro.service.js';
 
 /**
  * Subscription Management Service
@@ -181,14 +182,43 @@ class SubscriptionManagementService {
     try {
       logger.info(`🔄 Attempting renewal for: ${subscription.business.business_name}`);
 
-      // In production, this would:
-      // 1. Charge the payment method via Fygaro
-      // 2. If successful, extend the period
-      // 3. If failed, mark as past_due and send notification
+      // Check if Fygaro is configured and customer has payment method
+      if (!fygaroService.isConfigured()) {
+        logger.warn('⚠️  Fygaro not configured, marking subscription as past_due');
+        await this.markSubscriptionPastDue(subscription);
+        return;
+      }
 
-      // For now, we'll mark as past_due and send notification
-      // since payment integration is not yet complete
-      
+      if (!subscription.fygaro_customer_id) {
+        logger.warn(`⚠️  No Fygaro customer ID for ${subscription.business.business_name}`);
+        await this.markSubscriptionPastDue(subscription);
+        return;
+      }
+
+      // Attempt to charge via Fygaro
+      const paymentResult = await fygaroService.chargeSubscription(subscription);
+
+      if (paymentResult.success) {
+        // Payment successful - renew subscription
+        logger.info(`✅ Payment successful for ${subscription.business.business_name}`);
+        await this.renewSubscriptionPeriod(subscription, paymentResult);
+      } else {
+        // Payment failed - mark as past_due
+        logger.error(`❌ Payment failed for ${subscription.business.business_name}: ${paymentResult.error}`);
+        await this.markSubscriptionPastDue(subscription, paymentResult.error);
+      }
+
+    } catch (error) {
+      logger.error('Error attempting renewal:', error);
+      await this.markSubscriptionPastDue(subscription, error.message);
+    }
+  }
+
+  /**
+   * Mark subscription as past_due
+   */
+  async markSubscriptionPastDue(subscription, failureReason = 'Payment method required') {
+    try {
       const { error: updateError } = await supabase
         .from('subscriptions')
         .update({
@@ -210,25 +240,19 @@ class SubscriptionManagementService {
           amount: subscription.billing_cycle === 'yearly' 
             ? subscription.plan.price_yearly 
             : subscription.plan.price_monthly,
-          billingCycle: subscription.billing_cycle
+          billingCycle: subscription.billing_cycle,
+          failureReason
         }
       );
-
-      // TODO: Integrate with Fygaro payment gateway
-      // const paymentResult = await fygaroService.chargeSubscription(subscription);
-      // if (paymentResult.success) {
-      //   await this.renewSubscriptionPeriod(subscription);
-      // }
-
     } catch (error) {
-      logger.error('Error attempting renewal:', error);
+      logger.error('Error marking subscription past_due:', error);
     }
   }
 
   /**
    * Renew subscription period (after successful payment)
    */
-  async renewSubscriptionPeriod(subscription) {
+  async renewSubscriptionPeriod(subscription, paymentResult = null) {
     try {
       const newPeriodStart = new Date(subscription.current_period_end);
       const newPeriodEnd = new Date(newPeriodStart);
@@ -264,7 +288,7 @@ class SubscriptionManagementService {
       );
 
       // Create invoice record
-      await this.createInvoice(subscription, newPeriodStart, newPeriodEnd);
+      await this.createInvoice(subscription, newPeriodStart, newPeriodEnd, paymentResult);
 
     } catch (error) {
       logger.error('Error renewing subscription period:', error);
@@ -274,7 +298,7 @@ class SubscriptionManagementService {
   /**
    * Create invoice for renewal
    */
-  async createInvoice(subscription, periodStart, periodEnd) {
+  async createInvoice(subscription, periodStart, periodEnd, paymentResult = null) {
     try {
       const amount = subscription.billing_cycle === 'yearly'
         ? subscription.plan.price_yearly
@@ -282,21 +306,29 @@ class SubscriptionManagementService {
 
       const invoiceNumber = `INV-${Date.now()}-${subscription.business_id.substring(0, 8)}`;
 
+      const invoiceData = {
+        business_id: subscription.business_id,
+        subscription_id: subscription.id,
+        invoice_number: invoiceNumber,
+        subscription_amount: amount,
+        usage_amount: 0,
+        tax_amount: 0,
+        total_amount: amount,
+        period_start: periodStart.toISOString(),
+        period_end: periodEnd.toISOString(),
+        status: 'paid',
+        paid_at: new Date().toISOString()
+      };
+
+      // Add Fygaro payment details if available
+      if (paymentResult && paymentResult.chargeId) {
+        invoiceData.fygaro_payment_intent_id = paymentResult.chargeId;
+        invoiceData.payment_method = 'fygaro';
+      }
+
       const { error } = await supabase
         .from('invoices')
-        .insert({
-          business_id: subscription.business_id,
-          subscription_id: subscription.id,
-          invoice_number: invoiceNumber,
-          subscription_amount: amount,
-          usage_amount: 0,
-          tax_amount: 0,
-          total_amount: amount,
-          period_start: periodStart.toISOString(),
-          period_end: periodEnd.toISOString(),
-          status: 'paid',
-          paid_at: new Date().toISOString()
-        });
+        .insert(invoiceData);
 
       if (error) throw error;
 

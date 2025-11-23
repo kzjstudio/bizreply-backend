@@ -2,6 +2,7 @@ import express from 'express';
 import { supabase } from '../src/services/supabase.service.js';
 import { logger } from '../src/utils/logger.js';
 import usageTrackingService from '../services/usage-tracking.service.js';
+import fygaroService from '../services/fygaro.service.js';
 
 const router = express.Router();
 
@@ -202,12 +203,21 @@ router.get('/:businessId/subscription', async (req, res) => {
 
 /**
  * POST /api/billing/:businessId/subscription
- * Create or update subscription
+ * Create or update subscription with Fygaro integration
  */
 router.post('/:businessId/subscription', async (req, res) => {
   try {
     const { businessId } = req.params;
-    const { planId, billingCycle = 'monthly', fygaroCustomerId } = req.body;
+    const { planId, billingCycle = 'monthly', fygaroCustomerId, createFygaroCustomer = true } = req.body;
+
+    // Get business details
+    const { data: business, error: businessError } = await supabase
+      .from('businesses')
+      .select('business_name, contact_email, contact_phone')
+      .eq('id', businessId)
+      .single();
+
+    if (businessError) throw businessError;
 
     // Get plan details
     const { data: plan, error: planError } = await supabase
@@ -217,6 +227,56 @@ router.post('/:businessId/subscription', async (req, res) => {
       .single();
 
     if (planError) throw planError;
+
+    let finalFygaroCustomerId = fygaroCustomerId;
+    let fygaroSubscriptionId = null;
+
+    // Create Fygaro customer if needed and Fygaro is configured
+    if (fygaroService.isConfigured() && createFygaroCustomer && !finalFygaroCustomerId) {
+      logger.info(`Creating Fygaro customer for ${business.business_name}`);
+      
+      const customerResult = await fygaroService.createCustomer({
+        email: business.contact_email,
+        name: business.business_name,
+        phone: business.contact_phone,
+        businessId: businessId,
+        metadata: {
+          plan_name: plan.name,
+          plan_tier: plan.tier
+        }
+      });
+
+      if (customerResult.success) {
+        finalFygaroCustomerId = customerResult.customerId;
+        logger.info(`✅ Fygaro customer created: ${finalFygaroCustomerId}`);
+      } else {
+        logger.warn(`⚠️  Failed to create Fygaro customer: ${customerResult.error}`);
+      }
+    }
+
+    // Create Fygaro subscription if customer exists
+    if (fygaroService.isConfigured() && finalFygaroCustomerId) {
+      const amount = billingCycle === 'yearly' ? plan.price_yearly : plan.price_monthly;
+      
+      const subscriptionResult = await fygaroService.createSubscription({
+        customerId: finalFygaroCustomerId,
+        planName: plan.name,
+        amount: amount,
+        interval: billingCycle === 'yearly' ? 'year' : 'month',
+        metadata: {
+          business_id: businessId,
+          plan_id: planId,
+          plan_tier: plan.tier
+        }
+      });
+
+      if (subscriptionResult.success) {
+        fygaroSubscriptionId = subscriptionResult.subscriptionId;
+        logger.info(`✅ Fygaro subscription created: ${fygaroSubscriptionId}`);
+      } else {
+        logger.warn(`⚠️  Failed to create Fygaro subscription: ${subscriptionResult.error}`);
+      }
+    }
 
     // Calculate period dates
     const currentPeriodStart = new Date();
@@ -228,13 +288,14 @@ router.post('/:businessId/subscription', async (req, res) => {
       currentPeriodEnd.setMonth(currentPeriodEnd.getMonth() + 1);
     }
 
-    // Upsert subscription
+    // Upsert subscription in database
     const { data: subscription, error } = await supabase
       .from('subscriptions')
       .upsert({
         business_id: businessId,
         plan_id: planId,
-        fygaro_customer_id: fygaroCustomerId,
+        fygaro_customer_id: finalFygaroCustomerId,
+        fygaro_subscription_id: fygaroSubscriptionId,
         status: 'active',
         billing_cycle: billingCycle,
         current_period_start: currentPeriodStart.toISOString(),
@@ -248,7 +309,11 @@ router.post('/:businessId/subscription', async (req, res) => {
 
     logger.info(`✅ Subscription created/updated for business ${businessId} | Plan: ${plan.name}`);
 
-    res.json({ success: true, data: subscription });
+    res.json({ 
+      success: true, 
+      data: subscription,
+      fygaroIntegrated: !!finalFygaroCustomerId
+    });
   } catch (error) {
     logger.error('Error creating subscription:', error);
     res.status(500).json({ success: false, error: error.message });
