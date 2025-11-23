@@ -753,7 +753,23 @@ FORMATTING RULES FOR WHATSAPP:
         aiResponse
       );
 
-      // 12. Audit response for quality control
+      // 12. Increment message count for business
+      try {
+        const { error: updateError } = await supabase.rpc('increment_message_count', {
+          business_id_param: businessId
+        });
+        
+        if (updateError) {
+          console.error('Error incrementing message count:', updateError);
+        } else {
+          console.log(`📊 Message count incremented for business ${businessId}`);
+        }
+      } catch (error) {
+        console.error('Failed to increment message count:', error);
+        // Don't fail the request if counter update fails
+      }
+
+      // 13. Audit response for quality control
       await this.auditResponse(
         businessId,
         conversationId,
