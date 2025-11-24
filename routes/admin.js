@@ -275,7 +275,7 @@ router.get('/twilio-numbers', isAdmin, async (req, res) => {
       .from('twilio_numbers')
       .select(`
         *,
-        business:businesses(id, business_name, email)
+        business:businesses(id, business_name, owner_id)
       `)
       .order('created_at', { ascending: false });
 
@@ -287,21 +287,39 @@ router.get('/twilio-numbers', isAdmin, async (req, res) => {
     // Return empty array if no numbers exist
     const numbers = data || [];
     
-    // Derive usage statistics per number: count of messages for assigned business
+    // Enrich with owner email and usage statistics
+    const enriched = [];
     const usage = [];
+    
     for (const n of numbers) {
       let message_count = 0;
+      let owner_email = null;
+      
       if (n.assigned_to) {
+        // Get message count
         const { count } = await supabase
           .from('messages')
           .select('id', { count: 'exact', head: true })
           .eq('business_id', n.assigned_to);
         message_count = count || 0;
+        
+        // Get owner email if business exists
+        if (n.business?.owner_id) {
+          try {
+            const ownerRes = await supabase.auth.admin.getUserById(n.business.owner_id);
+            owner_email = ownerRes.data?.user?.email || null;
+          } catch (_) {}
+        }
       }
+      
       usage.push({ id: n.id, message_count });
+      enriched.push({
+        ...n,
+        business: n.business ? { ...n.business, email: owner_email } : null
+      });
     }
 
-    res.json({ numbers, usage });
+    res.json({ numbers: enriched, usage });
   } catch (error) {
     console.error('Error fetching Twilio numbers:', error);
     res.status(500).json({ error: 'Failed to fetch Twilio numbers', details: error.message });
