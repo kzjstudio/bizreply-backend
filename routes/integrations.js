@@ -583,26 +583,91 @@ router.get('/fk-status', async (_req, res) => {
 
 /**
  * DELETE /api/integrations/:businessId/:platform
- * Disconnect an integration
+ * Disconnect an integration and clean up all associated data
+ * 
+ * This removes:
+ * - Integration record
+ * - All products synced from this integration
+ * - All webhooks created in WooCommerce (if possible)
  */
 router.delete('/:businessId/:platform', async (req, res) => {
   try {
     const { businessId, platform } = req.params;
 
-    const { error } = await supabase
+    console.log(`🗑️  Disconnecting ${platform} integration for business ${businessId}`);
+
+    // Get integration credentials before deleting (needed to delete webhooks)
+    const { data: integration, error: fetchError } = await supabase
+      .from('integrations')
+      .select('*')
+      .eq('business_id', businessId)
+      .eq('platform', platform)
+      .single();
+
+    if (fetchError || !integration) {
+      return res.status(404).json({
+        error: 'Integration not found',
+      });
+    }
+
+    // Step 1: Delete webhooks from WooCommerce (if possible)
+    let webhooksDeleted = 0;
+    if (platform === 'woocommerce' && integration.credentials) {
+      try {
+        const { store_url, consumer_key, consumer_secret } = integration.credentials;
+        const woocommerce = new WooCommerce({
+          url: store_url,
+          consumerKey: consumer_key,
+          consumerSecret: consumer_secret,
+          version: 'wc/v3',
+        });
+
+        webhooksDeleted = await deleteWooCommerceWebhooks(woocommerce);
+        console.log(`✅ Deleted ${webhooksDeleted} webhooks from WooCommerce`);
+      } catch (error) {
+        console.warn('⚠️  Could not delete webhooks from WooCommerce:', error.message);
+        // Continue with disconnection even if webhook deletion fails
+      }
+    }
+
+    // Step 2: Delete all products synced from this integration
+    const { data: deletedProducts, error: productsError } = await supabase
+      .from('products')
+      .delete()
+      .eq('business_id', businessId)
+      .eq('source_platform', platform)
+      .select('count');
+
+    const productsCount = deletedProducts?.[0]?.count || 0;
+
+    if (productsError) {
+      console.error('Error deleting products:', productsError);
+    } else {
+      console.log(`✅ Deleted ${productsCount} products from database`);
+    }
+
+    // Step 3: Delete integration record
+    const { error: deleteError } = await supabase
       .from('integrations')
       .delete()
       .eq('business_id', businessId)
       .eq('platform', platform);
 
-    if (error) {
+    if (deleteError) {
       return res.status(500).json({
         error: 'Failed to delete integration',
-        details: error.message,
+        details: deleteError.message,
       });
     }
 
-    res.status(204).send();
+    console.log(`✅ Integration disconnected successfully`);
+
+    res.json({
+      success: true,
+      message: `${platform} integration disconnected successfully`,
+      products_deleted: productsCount,
+      webhooks_deleted: webhooksDeleted,
+    });
   } catch (error) {
     console.error('Delete integration error:', error);
     res.status(500).json({
@@ -794,6 +859,45 @@ async function createWooCommerceWebhooks(woocommerce, deliveryUrl) {
   }
 
   return createdCount;
+}
+
+/**
+ * Delete BizReply webhooks from WooCommerce
+ * Removes all webhooks with "BizReply" in the name
+ */
+async function deleteWooCommerceWebhooks(woocommerce) {
+  let deletedCount = 0;
+
+  try {
+    // Get all webhooks
+    const response = await woocommerce.get('webhooks', {
+      per_page: 100,
+    });
+
+    const webhooks = response.data;
+
+    // Filter BizReply webhooks
+    const bizreplyWebhooks = webhooks.filter(webhook => 
+      webhook.name && webhook.name.includes('BizReply')
+    );
+
+    // Delete each one
+    for (const webhook of bizreplyWebhooks) {
+      try {
+        await woocommerce.delete(`webhooks/${webhook.id}`, {
+          force: true, // Permanently delete, don't trash
+        });
+        console.log(`✅ Deleted webhook: ${webhook.name} (ID: ${webhook.id})`);
+        deletedCount++;
+      } catch (error) {
+        console.error(`❌ Failed to delete webhook ${webhook.id}:`, error.message);
+      }
+    }
+  } catch (error) {
+    console.error('Error fetching webhooks for deletion:', error.message);
+  }
+
+  return deletedCount;
 }
 
 export default router;
