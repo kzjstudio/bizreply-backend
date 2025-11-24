@@ -551,4 +551,126 @@ router.get('/system-health', isAdmin, async (req, res) => {
   }
 });
 
+/**
+ * GET /api/admin/webhook-logs
+ * Get recent webhook logs with stats
+ */
+router.get('/webhook-logs', isAdmin, async (req, res) => {
+  try {
+    const { hours = 24, limit = 50, source } = req.query;
+
+    // Get webhook stats
+    const { data: stats, error: statsError } = await supabase
+      .rpc('get_webhook_stats', { hours_back: parseInt(hours) });
+
+    if (statsError) throw statsError;
+
+    // Get recent webhook logs
+    let query = supabase
+      .from('system_logs')
+      .select('*')
+      .eq('log_type', 'webhook')
+      .order('created_at', { ascending: false })
+      .limit(parseInt(limit));
+
+    if (source) {
+      query = query.eq('source', source);
+    }
+
+    const { data: logs, error: logsError } = await query;
+
+    if (logsError) throw logsError;
+
+    res.json({
+      stats: stats || [],
+      logs: logs || []
+    });
+  } catch (error) {
+    console.error('Error fetching webhook logs:', error);
+    res.status(500).json({ error: 'Failed to fetch webhook logs' });
+  }
+});
+
+/**
+ * GET /api/admin/error-logs
+ * Get recent error logs
+ */
+router.get('/error-logs', isAdmin, async (req, res) => {
+  try {
+    const { hours = 24, limit = 100, severity } = req.query;
+
+    // Get error summary
+    const { data: summary, error: summaryError } = await supabase
+      .rpc('get_error_summary', { hours_back: parseInt(hours) });
+
+    if (summaryError) throw summaryError;
+
+    // Get recent error logs
+    let query = supabase
+      .from('system_logs')
+      .select('*')
+      .in('severity', ['error', 'critical'])
+      .order('created_at', { ascending: false })
+      .limit(parseInt(limit));
+
+    if (severity) {
+      query = query.eq('severity', severity);
+    }
+
+    const { data: logs, error: logsError } = await query;
+
+    if (logsError) throw logsError;
+
+    res.json({
+      summary: summary || [],
+      logs: logs || []
+    });
+  } catch (error) {
+    console.error('Error fetching error logs:', error);
+    res.status(500).json({ error: 'Failed to fetch error logs' });
+  }
+});
+
+/**
+ * GET /api/admin/sync-status
+ * Get sync job status
+ */
+router.get('/sync-status', isAdmin, async (req, res) => {
+  try {
+    const { data, error } = await supabase.rpc('get_sync_job_status');
+
+    if (error) throw error;
+
+    res.json({ jobs: data || [] });
+  } catch (error) {
+    console.error('Error fetching sync status:', error);
+    res.status(500).json({ error: 'Failed to fetch sync status' });
+  }
+});
+
+/**
+ * POST /api/admin/logs/resolve/:id
+ * Mark a log as resolved
+ */
+router.post('/logs/resolve/:id', isAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const { error } = await supabase
+      .from('system_logs')
+      .update({
+        resolved_at: new Date().toISOString(),
+        resolved_by: req.admin.email
+      })
+      .eq('id', id);
+
+    if (error) throw error;
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error resolving log:', error);
+    res.status(500).json({ error: 'Failed to resolve log' });
+  }
+});
+
 export default router;
