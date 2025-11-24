@@ -28,6 +28,11 @@ CREATE INDEX IF NOT EXISTS idx_system_logs_resolved_at ON system_logs(resolved_a
 -- Create RLS policies (admin only)
 ALTER TABLE system_logs ENABLE ROW LEVEL SECURITY;
 
+-- Drop existing policies if they exist
+DROP POLICY IF EXISTS "Admins can view all logs" ON system_logs;
+DROP POLICY IF EXISTS "Admins can insert logs" ON system_logs;
+DROP POLICY IF EXISTS "Admins can update logs" ON system_logs;
+
 -- Admins can view all logs
 CREATE POLICY "Admins can view all logs"
   ON system_logs
