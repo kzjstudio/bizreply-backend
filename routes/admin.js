@@ -279,11 +279,17 @@ router.get('/twilio-numbers', isAdmin, async (req, res) => {
       `)
       .order('created_at', { ascending: false });
 
-    if (error) throw error;
+    if (error) {
+      console.error('Error querying twilio_numbers:', error);
+      throw error;
+    }
+
+    // Return empty array if no numbers exist
+    const numbers = data || [];
+    
     // Derive usage statistics per number: count of messages for assigned business
-    // We assume messages table has business_id; if per-number granularity needed, adjust here.
     const usage = [];
-    for (const n of data) {
+    for (const n of numbers) {
       let message_count = 0;
       if (n.assigned_to) {
         const { count } = await supabase
@@ -295,10 +301,10 @@ router.get('/twilio-numbers', isAdmin, async (req, res) => {
       usage.push({ id: n.id, message_count });
     }
 
-    res.json({ numbers: data, usage });
+    res.json({ numbers, usage });
   } catch (error) {
     console.error('Error fetching Twilio numbers:', error);
-    res.status(500).json({ error: 'Failed to fetch Twilio numbers' });
+    res.status(500).json({ error: 'Failed to fetch Twilio numbers', details: error.message });
   }
 });
 
