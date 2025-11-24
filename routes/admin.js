@@ -177,6 +177,16 @@ router.get('/businesses/:businessId', isAdmin, async (req, res) => {
       assigned_number = numberById;
     }
 
+    // If still no number found but business has phone_number_id, create a minimal record
+    if (!assigned_number && business.phone_number_id) {
+      assigned_number = {
+        phone_number_id: business.phone_number_id,
+        phone_number: business.phone_number_id, // Display the ID as fallback
+        assigned_at: business.updated_at,
+        source: 'business_record' // Flag that this came from business table
+      };
+    }
+
     // Message count (live)
     const { count: messages_count } = await supabase
       .from('messages')
