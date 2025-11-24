@@ -91,8 +91,26 @@ router.get('/businesses', isAdmin, async (req, res) => {
 
     if (error) throw error;
 
+    // Enrich with owner email and live message counts
+    const enriched = await Promise.all((data || []).map(async (b) => {
+      let owner_email = null;
+      try {
+        const ownerRes = await supabase.auth.admin.getUserById(b.owner_id);
+        owner_email = ownerRes.data?.user?.email || null;
+      } catch (_) {}
+      let message_count = 0;
+      try {
+        const { count: msgCount } = await supabase
+          .from('messages')
+          .select('id', { count: 'exact', head: true })
+          .eq('business_id', b.id);
+        message_count = msgCount || 0;
+      } catch (_) {}
+      return { ...b, email: owner_email, owner_email, message_count };
+    }));
+
     res.json({
-      businesses: data,
+      businesses: enriched,
       total: count,
       page: parseInt(page),
       limit: parseInt(limit),
@@ -112,13 +130,54 @@ router.get('/businesses/:businessId', isAdmin, async (req, res) => {
   try {
     const { businessId } = req.params;
 
-    const { data, error } = await supabase.rpc('get_business_details', {
-      business_id_param: businessId,
-    });
+    // Base business record
+    const { data: business, error: businessError } = await supabase
+      .from('businesses')
+      .select('*')
+      .eq('id', businessId)
+      .single();
+    if (businessError) throw businessError;
 
-    if (error) throw error;
+    // Owner email
+    let owner_email = null;
+    try {
+      const ownerRes = await supabase.auth.admin.getUserById(business.owner_id);
+      owner_email = ownerRes.data?.user?.email || null;
+    } catch (_) {}
 
-    res.json(data);
+    // Integrations
+    const { data: integrations } = await supabase
+      .from('integrations')
+      .select('*')
+      .eq('business_id', businessId);
+
+    // Products count
+    const { count: products_count } = await supabase
+      .from('products')
+      .select('id', { count: 'exact', head: true })
+      .eq('business_id', businessId);
+
+    // Assigned number
+    const { data: assigned_number } = await supabase
+      .from('twilio_numbers')
+      .select('*')
+      .eq('assigned_to', businessId)
+      .single();
+
+    // Message count (live)
+    const { count: messages_count } = await supabase
+      .from('messages')
+      .select('id', { count: 'exact', head: true })
+      .eq('business_id', businessId);
+
+    const full = {
+      business: { ...business, email: owner_email, owner_email, message_count: messages_count || 0 },
+      integrations: integrations || [],
+      products_count: products_count || 0,
+      assigned_number: assigned_number || null
+    };
+
+    res.json(full);
   } catch (error) {
     console.error('Error fetching business details:', error);
     res.status(500).json({ error: 'Failed to fetch business details' });
@@ -198,8 +257,22 @@ router.get('/twilio-numbers', isAdmin, async (req, res) => {
       .order('created_at', { ascending: false });
 
     if (error) throw error;
+    // Derive usage statistics per number: count of messages for assigned business
+    // We assume messages table has business_id; if per-number granularity needed, adjust here.
+    const usage = [];
+    for (const n of data) {
+      let message_count = 0;
+      if (n.assigned_to) {
+        const { count } = await supabase
+          .from('messages')
+          .select('id', { count: 'exact', head: true })
+          .eq('business_id', n.assigned_to);
+        message_count = count || 0;
+      }
+      usage.push({ id: n.id, message_count });
+    }
 
-    res.json({ numbers: data });
+    res.json({ numbers: data, usage });
   } catch (error) {
     console.error('Error fetching Twilio numbers:', error);
     res.status(500).json({ error: 'Failed to fetch Twilio numbers' });
@@ -338,6 +411,96 @@ router.post('/unassign-number', isAdmin, async (req, res) => {
   } catch (error) {
     console.error('Error unassigning number:', error);
     res.status(500).json({ error: 'Failed to unassign number' });
+  }
+});
+
+/**
+ * GET /api/admin/number-usage
+ * Aggregate usage statistics for Twilio numbers
+ */
+router.get('/number-usage', isAdmin, async (req, res) => {
+  try {
+    // Total numbers
+    const { count: totalNumbers } = await supabase
+      .from('twilio_numbers')
+      .select('id', { count: 'exact', head: true });
+
+    // Assigned numbers
+    const { count: assignedNumbers } = await supabase
+      .from('twilio_numbers')
+      .select('id', { count: 'exact', head: true })
+      .not('assigned_to', 'is', null);
+
+    // Unassigned numbers
+    const unassignedNumbers = (totalNumbers || 0) - (assignedNumbers || 0);
+
+    // Total messages across all businesses with assigned numbers
+    const { data: assignedList } = await supabase
+      .from('twilio_numbers')
+      .select('assigned_to')
+      .not('assigned_to', 'is', null);
+
+    let totalMessages = 0;
+    if (assignedList && assignedList.length > 0) {
+      const businessIds = [...new Set(assignedList.map(r => r.assigned_to))];
+      for (const bId of businessIds) {
+        const { count } = await supabase
+          .from('messages')
+          .select('id', { count: 'exact', head: true })
+          .eq('business_id', bId);
+        totalMessages += count || 0;
+      }
+    }
+
+    res.json({
+      total_numbers: totalNumbers || 0,
+      assigned_numbers: assignedNumbers || 0,
+      unassigned_numbers: unassignedNumbers,
+      total_messages: totalMessages,
+      generated_at: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Error building number usage stats:', error);
+    res.status(500).json({ error: 'Failed to build number usage stats' });
+  }
+});
+
+/**
+ * GET /api/admin/system-health
+ * Basic system health snapshot
+ */
+router.get('/system-health', isAdmin, async (req, res) => {
+  try {
+    const timestamp = new Date().toISOString();
+
+    const [{ count: businessCount }, { count: messageCount }, { count: productCount }, { count: integrationCount }] = await Promise.all([
+      supabase.from('businesses').select('id', { count: 'exact', head: true }),
+      supabase.from('messages').select('id', { count: 'exact', head: true }),
+      supabase.from('products').select('id', { count: 'exact', head: true }),
+      supabase.from('integrations').select('id', { count: 'exact', head: true })
+    ]);
+
+    const [{ count: totalNumbers }, { count: assignedNumbers }] = await Promise.all([
+      supabase.from('twilio_numbers').select('id', { count: 'exact', head: true }),
+      supabase.from('twilio_numbers').select('id', { count: 'exact', head: true }).not('assigned_to', 'is', null)
+    ]);
+
+    res.json({
+      status: 'ok',
+      timestamp,
+      stats: {
+        businesses: businessCount || 0,
+        messages: messageCount || 0,
+        products: productCount || 0,
+        integrations: integrationCount || 0,
+        numbers_total: totalNumbers || 0,
+        numbers_assigned: assignedNumbers || 0,
+        numbers_unassigned: (totalNumbers || 0) - (assignedNumbers || 0)
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching system health:', error);
+    res.status(500).json({ status: 'error', error: 'Failed to fetch system health' });
   }
 });
 

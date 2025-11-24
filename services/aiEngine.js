@@ -219,7 +219,10 @@ class AIEngine {
       // Ensure product_url is always present in the returned product objects
       return (products || []).map(p => ({
         ...p,
-        product_url: p.product_url || p.permalink || ''
+        // Prefer existing product_url, then permalink, else blank (never example.com placeholder)
+        product_url: p.product_url && !p.product_url.startsWith('https://example.com')
+          ? p.product_url
+          : (p.permalink && !p.permalink.startsWith('https://example.com') ? p.permalink : '')
       }));
     } catch (error) {
       console.error('Error getting relevant products:', error);
@@ -256,7 +259,9 @@ class AIEngine {
         sku: p.sku,
         stock_quantity: p.stock_quantity,
         source_platform: p.source_platform,
-        product_url: p.product_url || p.permalink || ''
+        product_url: p.product_url && !p.product_url.startsWith('https://example.com')
+          ? p.product_url
+          : (p.permalink && !p.permalink.startsWith('https://example.com') ? p.permalink : '')
       }));
     } catch (error) {
       console.error('Error getting products by price:', error);

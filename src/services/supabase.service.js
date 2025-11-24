@@ -255,6 +255,22 @@ export const saveMessage = async (messageData) => {
       .eq('id', conversationId);
     
     console.log('[Supabase] Message saved:', data.id);
+
+    // Increment cached message_count on business (best-effort, ignore failure)
+    try {
+      const { data: current } = await supabase
+        .from('businesses')
+        .select('message_count')
+        .eq('id', businessId)
+        .single();
+      const currentCount = current?.message_count || 0;
+      await supabase
+        .from('businesses')
+        .update({ message_count: currentCount + 1, updated_at: new Date().toISOString() })
+        .eq('id', businessId);
+    } catch (incErr) {
+      console.warn('[Supabase] Failed to increment business message_count:', incErr?.message);
+    }
     return data;
   } catch (error) {
     console.error('[Supabase] Error saving message:', error);
