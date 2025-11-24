@@ -12,6 +12,7 @@ import billingRoutes from '../routes/billing.js';
 import webhookRoutes from '../routes/webhooks.js';
 import instagramRoutes from '../routes/instagram.js';
 import woocommerceRoutes from '../routes/woocommerce.js';
+import adminRoutes from '../routes/admin.js';
 import { initializeFirebase } from './config/firebase.config.js';
 import { logger } from './utils/logger.js';
 import productSyncService from '../services/productSyncService.js';
@@ -71,6 +72,7 @@ app.use('/api/integrations', integrationsRoutes);
 app.use('/api/conversations', conversationsRoutes);
 app.use('/api/billing', billingRoutes);
 app.use('/api/instagram', instagramRoutes);
+app.use('/api/admin', adminRoutes);
 
 // 404 handler
 app.use((req, res) => {
