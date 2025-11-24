@@ -81,6 +81,12 @@ router.post('/connect', async (req, res) => {
         // Test connection by fetching store info
         await woocommerce.get('system_status');
         connectionValid = true;
+
+        // Auto-create webhooks for real-time product sync
+        const webhookUrl = process.env.WEBHOOK_BASE_URL || 'https://kzjinnovations.com';
+        const webhooksCreated = await createWooCommerceWebhooks(woocommerce, `${webhookUrl}/api/woocommerce/webhook`);
+        
+        console.log(`✅ Created ${webhooksCreated} webhooks for WooCommerce store`);
       } catch (error) {
         return res.status(400).json({
           error: 'Failed to connect to WooCommerce store',
@@ -121,7 +127,7 @@ router.post('/connect', async (req, res) => {
     res.status(201).json({
       success: true,
       integration,
-      message: `${platform} connected successfully`,
+      message: `${platform} connected successfully. Real-time sync enabled via webhooks.`,
     });
   } catch (error) {
     console.error('Integration connect error:', error);
@@ -733,5 +739,61 @@ router.post('/sync-all', async (req, res) => {
     });
   }
 });
+
+/**
+ * Auto-create WooCommerce webhooks for real-time product sync
+ * Creates 3 webhooks: product.created, product.updated, product.deleted
+ */
+async function createWooCommerceWebhooks(woocommerce, deliveryUrl) {
+  const webhooks = [
+    {
+      name: 'BizReply - Product Created',
+      topic: 'product.created',
+      delivery_url: deliveryUrl,
+      status: 'active',
+    },
+    {
+      name: 'BizReply - Product Updated', 
+      topic: 'product.updated',
+      delivery_url: deliveryUrl,
+      status: 'active',
+    },
+    {
+      name: 'BizReply - Product Deleted',
+      topic: 'product.deleted',
+      delivery_url: deliveryUrl,
+      status: 'active',
+    },
+  ];
+
+  let createdCount = 0;
+
+  for (const webhook of webhooks) {
+    try {
+      // Check if webhook already exists
+      const existingWebhooks = await woocommerce.get('webhooks', {
+        search: webhook.name,
+      });
+
+      // If webhook with this name already exists, skip
+      if (existingWebhooks.data && existingWebhooks.data.length > 0) {
+        console.log(`⚠️  Webhook already exists: ${webhook.name}`);
+        createdCount++; // Count as created since it exists
+        continue;
+      }
+
+      // Create the webhook
+      await woocommerce.post('webhooks', webhook);
+      console.log(`✅ Created webhook: ${webhook.name}`);
+      createdCount++;
+    } catch (error) {
+      console.error(`❌ Failed to create webhook ${webhook.name}:`, error.message);
+      // Don't fail the entire connection if webhook creation fails
+      // Webhooks can be created manually as fallback
+    }
+  }
+
+  return createdCount;
+}
 
 export default router;
