@@ -563,6 +563,10 @@ router.get('/webhook-logs', isAdmin, async (req, res) => {
     const { data: stats, error: statsError } = await supabase
       .rpc('get_webhook_stats', { hours_back: parseInt(hours) });
 
+    // If table doesn't exist yet, return empty data
+    if (statsError && statsError.code === '42P01') {
+      return res.json({ stats: [], logs: [] });
+    }
     if (statsError) throw statsError;
 
     // Get recent webhook logs
@@ -579,6 +583,9 @@ router.get('/webhook-logs', isAdmin, async (req, res) => {
 
     const { data: logs, error: logsError } = await query;
 
+    if (logsError && logsError.code === '42P01') {
+      return res.json({ stats: [], logs: [] });
+    }
     if (logsError) throw logsError;
 
     res.json({
@@ -603,6 +610,10 @@ router.get('/error-logs', isAdmin, async (req, res) => {
     const { data: summary, error: summaryError } = await supabase
       .rpc('get_error_summary', { hours_back: parseInt(hours) });
 
+    // If table doesn't exist yet, return empty data
+    if (summaryError && summaryError.code === '42P01') {
+      return res.json({ summary: [], logs: [] });
+    }
     if (summaryError) throw summaryError;
 
     // Get recent error logs
@@ -619,6 +630,9 @@ router.get('/error-logs', isAdmin, async (req, res) => {
 
     const { data: logs, error: logsError } = await query;
 
+    if (logsError && logsError.code === '42P01') {
+      return res.json({ summary: [], logs: [] });
+    }
     if (logsError) throw logsError;
 
     res.json({
@@ -639,6 +653,10 @@ router.get('/sync-status', isAdmin, async (req, res) => {
   try {
     const { data, error } = await supabase.rpc('get_sync_job_status');
 
+    // If table doesn't exist yet, return empty data
+    if (error && error.code === '42P01') {
+      return res.json({ jobs: [] });
+    }
     if (error) throw error;
 
     res.json({ jobs: data || [] });
