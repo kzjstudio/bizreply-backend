@@ -606,4 +606,132 @@ router.delete('/:businessId/:platform', async (req, res) => {
   }
 });
 
+/**
+ * POST /api/integrations/sync-all
+ * Daily fallback sync - syncs all active WooCommerce integrations
+ * This is called by the daily cron job to catch any missed webhooks
+ */
+router.post('/sync-all', async (req, res) => {
+  try {
+    console.log('📦 Starting daily fallback product sync for all businesses...');
+
+    // Get all active WooCommerce integrations
+    const { data: integrations, error } = await supabase
+      .from('integrations')
+      .select('*')
+      .eq('platform', 'woocommerce')
+      .eq('is_active', true);
+
+    if (error) {
+      throw error;
+    }
+
+    let totalSynced = 0;
+    let businessesProcessed = 0;
+
+    // Sync each integration
+    for (const integration of integrations) {
+      try {
+        const { store_url, consumer_key, consumer_secret } = integration.credentials;
+
+        const woocommerce = new WooCommerce({
+          url: store_url,
+          consumerKey: consumer_key,
+          consumerSecret: consumer_secret,
+          version: 'wc/v3',
+        });
+
+        // Fetch products
+        const response = await woocommerce.get('products', {
+          per_page: 100,
+          status: 'publish',
+        });
+
+        const products = response.data;
+        let syncedCount = 0;
+
+        // Sync each product
+        for (const product of products) {
+          let has_variants = false;
+          let variant_options = null;
+
+          if (Array.isArray(product.variations) && product.variations.length > 0) {
+            has_variants = true;
+          }
+
+          if (Array.isArray(product.attributes) && product.attributes.length > 0) {
+            variant_options = {};
+            product.attributes.forEach(attr => {
+              if (attr.name && Array.isArray(attr.options)) {
+                variant_options[attr.name] = attr.options;
+              }
+            });
+          }
+
+          const { error: productError } = await supabase
+            .from('products')
+            .upsert({
+              business_id: integration.business_id,
+              external_id: product.id.toString(),
+              name: product.name,
+              description: product.description || product.short_description,
+              price: parseFloat(product.price) || 0,
+              sale_price: product.sale_price ? parseFloat(product.sale_price) : null,
+              category: product.categories?.[0]?.name || 'Uncategorized',
+              image_url: product.images?.[0]?.src || null,
+              stock_quantity: product.stock_quantity,
+              sku: product.sku,
+              is_active: product.status === 'publish',
+              source_platform: 'woocommerce',
+              updated_at: new Date().toISOString(),
+              product_url: product.permalink || null,
+              has_variants,
+              variant_options,
+            }, {
+              onConflict: 'business_id,external_id',
+            });
+
+          if (!productError) {
+            syncedCount++;
+          }
+        }
+
+        // Update last sync time
+        await supabase
+          .from('integrations')
+          .update({
+            last_sync_at: new Date().toISOString(),
+            products_count: syncedCount,
+          })
+          .eq('id', integration.id);
+
+        totalSynced += syncedCount;
+        businessesProcessed++;
+
+        console.log(`✅ Synced ${syncedCount} products for business ${integration.business_id}`);
+      } catch (error) {
+        console.error(`❌ Error syncing business ${integration.business_id}:`, error.message);
+      }
+    }
+
+    // Trigger embedding generation
+    setTimeout(() => {
+      productSyncService.syncAllProducts();
+    }, 2000);
+
+    res.json({
+      success: true,
+      businesses_processed: businessesProcessed,
+      total_products_synced: totalSynced,
+      message: `Daily sync completed: ${totalSynced} products synced across ${businessesProcessed} businesses`,
+    });
+  } catch (error) {
+    console.error('Sync-all error:', error);
+    res.status(500).json({
+      error: 'Daily sync failed',
+      details: error.message,
+    });
+  }
+});
+
 export default router;

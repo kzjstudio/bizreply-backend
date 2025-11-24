@@ -11,11 +11,13 @@ import conversationsRoutes from '../routes/conversations.js';
 import billingRoutes from '../routes/billing.js';
 import webhookRoutes from '../routes/webhooks.js';
 import instagramRoutes from '../routes/instagram.js';
+import woocommerceRoutes from '../routes/woocommerce.js';
 import { initializeFirebase } from './config/firebase.config.js';
 import { logger } from './utils/logger.js';
 import productSyncService from '../services/productSyncService.js';
 import conversationAutoReleaseService from '../services/conversation-auto-release.service.js';
 import subscriptionManagementService from '../services/subscription-management.service.js';
+import dailyProductSyncService from '../services/daily-product-sync.service.js';
 import integrationsRoutes from '../routes/integrations.js';
 
 // Load environment variables
@@ -61,6 +63,7 @@ app.get('/health', (req, res) => {
 // Routes
 app.use('/webhook', whatsappRoutes);
 app.use('/api/webhooks', webhookRoutes);
+app.use('/api/woocommerce', woocommerceRoutes);
 app.use('/api/business', businessRoutes);
 app.use('/api/products', productsRoutes);
 app.use('/api/ai', aiRoutes);
@@ -89,8 +92,11 @@ app.listen(PORT, () => {
   logger.info(`WhatsApp webhook endpoint: http://localhost:${PORT}/webhook`);
   logger.info(`Health check: http://localhost:${PORT}/health`);
   
-  // Start product sync service
+  // Start product sync service (embeddings every 5 minutes)
   productSyncService.startPeriodicSync();
+  
+  // Start daily product sync from WooCommerce (fallback)
+  dailyProductSyncService.startCronJob();
   
   // Start conversation auto-release cron job
   conversationAutoReleaseService.startCronJob();
