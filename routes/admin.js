@@ -157,12 +157,25 @@ router.get('/businesses/:businessId', isAdmin, async (req, res) => {
       .select('id', { count: 'exact', head: true })
       .eq('business_id', businessId);
 
-    // Assigned number
-    const { data: assigned_number } = await supabase
+    // Assigned number (try by assigned_to first, fallback to phone_number_id match)
+    let assigned_number = null;
+    const { data: numberByAssignment } = await supabase
       .from('twilio_numbers')
       .select('*')
       .eq('assigned_to', businessId)
-      .single();
+      .maybeSingle();
+    
+    if (numberByAssignment) {
+      assigned_number = numberByAssignment;
+    } else if (business.phone_number_id) {
+      // Fallback: find by phone_number_id if assigned_to isn't set
+      const { data: numberById } = await supabase
+        .from('twilio_numbers')
+        .select('*')
+        .eq('phone_number_id', business.phone_number_id)
+        .maybeSingle();
+      assigned_number = numberById;
+    }
 
     // Message count (live)
     const { count: messages_count } = await supabase
