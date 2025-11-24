@@ -13,11 +13,11 @@ CREATE INDEX IF NOT EXISTS idx_admins_email ON admins(email);
 -- Create RLS policies
 ALTER TABLE admins ENABLE ROW LEVEL SECURITY;
 
--- Only admins can read admin table
-CREATE POLICY "Admins can read admins table" ON admins
+-- Allow authenticated users to check if their email is in admins table
+CREATE POLICY "Authenticated users can check admin status" ON admins
   FOR SELECT
   USING (
-    email IN (SELECT email FROM admins)
+    auth.jwt() ->> 'email' = email
   );
 
 -- Only super admins can insert/update/delete
