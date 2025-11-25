@@ -170,3 +170,53 @@ export const getAllBusinesses = async () => {
     throw error;
   }
 };
+
+/**
+ * Get business by Facebook Page ID
+ */
+export const getBusinessByPageId = async (pageId) => {
+  try {
+    const db = getFirestore();
+    const businessRef = db.collection('businesses');
+    
+    const snapshot = await businessRef
+      .where('facebookPageId', '==', pageId)
+      .limit(1)
+      .get();
+
+    if (snapshot.empty) {
+      return null;
+    }
+
+    const doc = snapshot.docs[0];
+    return { id: doc.id, ...doc.data() };
+  } catch (error) {
+    logger.error('❌ Error getting business by Facebook page ID:', error);
+    return null;
+  }
+};
+
+/**
+ * Get business by Instagram Account ID
+ */
+export const getBusinessByInstagramId = async (instagramAccountId) => {
+  try {
+    const db = getFirestore();
+    const businessRef = db.collection('businesses');
+    
+    const snapshot = await businessRef
+      .where('instagramAccountId', '==', instagramAccountId)
+      .limit(1)
+      .get();
+
+    if (snapshot.empty) {
+      return null;
+    }
+
+    const doc = snapshot.docs[0];
+    return { id: doc.id, ...doc.data() };
+  } catch (error) {
+    logger.error('❌ Error getting business by Instagram account ID:', error);
+    return null;
+  }
+};
