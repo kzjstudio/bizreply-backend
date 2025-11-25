@@ -382,11 +382,12 @@ router.post('/assign-number', isAdmin, async (req, res) => {
 
     if (numberError) throw numberError;
 
-    // Update business with phone_number_id
+    // Update business with phone_number_id and activate
     const { data: businessData, error: businessError } = await supabase
       .from('businesses')
       .update({
         phone_number_id: numberData.phone_number_id,
+        is_active: true, // Activate business when number is assigned
         updated_at: new Date().toISOString(),
       })
       .eq('id', businessId)
@@ -439,12 +440,13 @@ router.post('/unassign-number', isAdmin, async (req, res) => {
 
     if (numberError) throw numberError;
 
-    // Update business to remove phone_number_id
+    // Update business to remove phone_number_id and deactivate
     if (currentNumber?.assigned_to) {
       await supabase
         .from('businesses')
         .update({
           phone_number_id: null,
+          is_active: false, // Deactivate business when number is unassigned
           updated_at: new Date().toISOString(),
         })
         .eq('id', currentNumber.assigned_to);
