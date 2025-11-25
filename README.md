@@ -1,10 +1,14 @@
-# BizReply Backend - WhatsApp Business AI Reply Server
+# BizReply Backend - Multi-Platform AI Customer Service Agent
 
-A Node.js backend server that handles WhatsApp Business API webhooks, processes messages with AI, and manages business rules.
+A Node.js backend server that handles WhatsApp, Facebook Messenger, and Instagram webhooks, processes messages with AI, and manages business rules for automatic customer service responses.
 
 ## 🚀 Features
 
 - ✅ WhatsApp Business API webhook integration
+- ✅ Facebook Messenger webhook integration
+- ✅ Instagram Direct Messages webhook integration
+- ✅ Facebook Page comments auto-reply
+- ✅ Instagram comments auto-reply
 - ✅ AI-powered response generation (OpenAI GPT-4/3.5)
 - ✅ Firebase Firestore database for data storage
 - ✅ Multi-business support
@@ -16,8 +20,10 @@ A Node.js backend server that handles WhatsApp Business API webhooks, processes 
 
 1. **Node.js** (v18 or higher)
 2. **WhatsApp Business API Account** ([Sign up here](https://developers.facebook.com/docs/whatsapp/cloud-api/get-started))
-3. **Firebase Project** ([Create one here](https://console.firebase.google.com/))
-4. **OpenAI API Key** (optional, for AI responses) ([Get one here](https://platform.openai.com/api-keys))
+3. **Facebook Page** with Messenger enabled ([Create one here](https://www.facebook.com/pages/create))
+4. **Instagram Business Account** connected to Facebook Page
+5. **Firebase Project** ([Create one here](https://console.firebase.google.com/))
+6. **OpenAI API Key** (optional, for AI responses) ([Get one here](https://platform.openai.com/api-keys))
 
 ## 🛠️ Setup Instructions
 
@@ -70,7 +76,22 @@ npm install
    - **Phone Number ID** (from API Setup)
    - Create a **Webhook Verify Token** (any random string)
 
-### 5. Start the Server
+### 5. Get Facebook & Instagram API Credentials
+
+1. Go to [Meta for Developers](https://developers.facebook.com/)
+2. In your app, add the **Messenger** and **Instagram** products
+3. Connect your **Facebook Page** to the app
+4. Connect your **Instagram Business Account** to the Facebook Page
+5. Get your:
+   - **Page Access Token** (from Messenger → Settings → Access Tokens)
+   - **Facebook Page ID** (from Page Settings → About)
+   - **Instagram Business Account ID** (from Instagram → Basic Display)
+6. Configure webhook subscriptions:
+   - **Messenger**: `messages`, `messaging_postbacks`, `message_deliveries`, `message_reads`
+   - **Instagram**: `messages`, `comments`, `mentions`
+   - **Page**: `feed` (for comment auto-replies)
+
+### 6. Start the Server
 
 **Development mode (with auto-reload):**
 ```bash
@@ -84,7 +105,9 @@ npm start
 
 The server will start on `http://localhost:3000`
 
-## 🔗 Configure WhatsApp Webhook
+## 🔗 Configure Webhooks
+
+### WhatsApp Webhook
 
 1. **Deploy your backend** to a public server with HTTPS (required by Meta):
    - Render.com
@@ -102,13 +125,49 @@ The server will start on `http://localhost:3000`
    - Click **Verify and Save**
    - Subscribe to webhook fields: `messages`
 
+### Facebook Messenger Webhook
+
+1. In Meta Developer Portal, go to **Messenger** → **Settings**
+2. Under **Webhooks**, click **Add Callback URL**
+3. Enter:
+   - **Callback URL**: `https://your-domain.com/webhook/facebook`
+   - **Verify Token**: The same token you set in `.env`
+4. Subscribe to webhook fields:
+   - `messages` - Receive messages
+   - `messaging_postbacks` - Button clicks
+   - `message_deliveries` - Delivery confirmations
+   - `message_reads` - Read receipts
+
+### Instagram Webhook
+
+1. In Meta Developer Portal, go to **Instagram** → **Webhooks**
+2. Click **Add Callback URL**
+3. Enter:
+   - **Callback URL**: `https://your-domain.com/webhook/instagram`
+   - **Verify Token**: The same token you set in `.env`
+4. Subscribe to webhook fields:
+   - `messages` - Direct messages
+   - `comments` - Comments on your posts
+   - `mentions` - When someone mentions your account
+
+### Facebook Page Comments Webhook
+
+1. In Meta Developer Portal, go to your **App** → **Webhooks**
+2. Select **Page** as the object
+3. Enter your webhook URL: `https://your-domain.com/webhook/facebook`
+4. Subscribe to:
+   - `feed` - Page feed events (including comments)
+
 ## 📊 Firestore Database Structure
 
 ```
 businesses/
   {businessId}/
     - name: string
-    - phoneNumberId: string
+    - phoneNumberId: string (WhatsApp)
+    - facebookPageId: string (Facebook)
+    - instagramAccountId: string (Instagram)
+    - facebookPageAccessToken: string (optional, per-business token)
     - rules: object
       - businessName: string
       - businessHours: string
@@ -118,26 +177,41 @@ businesses/
       - priceList: string
       - location: string
       - etc...
+    - settings: object
+      - autoReplyComments: boolean (enable/disable comment auto-replies)
     - createdAt: timestamp
     - updatedAt: timestamp
 
 messages/
   {messageId}/
     - businessId: string
-    - from: string (phone number)
-    - to: string (phone number)
+    - from: string (sender ID)
+    - to: string (recipient ID)
     - messageText: string
     - timestamp: timestamp
     - direction: string (incoming/outgoing)
-    - type: string (text/image/etc)
+    - type: string (text/comment/image/etc)
+    - platform: string (whatsapp/facebook/instagram)
+    - postId: string (for comments)
+    - mediaId: string (for Instagram comments)
     - createdAt: timestamp
 ```
 
 ## 🧪 Testing
 
-### Test webhook verification:
+### Test WhatsApp webhook verification:
 ```bash
 curl "http://localhost:3000/webhook?hub.mode=subscribe&hub.verify_token=YOUR_VERIFY_TOKEN&hub.challenge=test123"
+```
+
+### Test Facebook webhook verification:
+```bash
+curl "http://localhost:3000/webhook/facebook?hub.mode=subscribe&hub.verify_token=YOUR_VERIFY_TOKEN&hub.challenge=test123"
+```
+
+### Test Instagram webhook verification:
+```bash
+curl "http://localhost:3000/webhook/instagram?hub.mode=subscribe&hub.verify_token=YOUR_VERIFY_TOKEN&hub.challenge=test123"
 ```
 
 ### Test health endpoint:
@@ -145,13 +219,15 @@ curl "http://localhost:3000/webhook?hub.mode=subscribe&hub.verify_token=YOUR_VER
 curl http://localhost:3000/health
 ```
 
-### Create a test business:
+### Create a test business (with all platforms):
 ```bash
 curl -X POST http://localhost:3000/api/business \
   -H "Content-Type: application/json" \
   -d '{
     "name": "Test Business",
-    "phoneNumberId": "YOUR_PHONE_NUMBER_ID",
+    "phoneNumberId": "YOUR_WHATSAPP_PHONE_NUMBER_ID",
+    "facebookPageId": "YOUR_FACEBOOK_PAGE_ID",
+    "instagramAccountId": "YOUR_INSTAGRAM_ACCOUNT_ID",
     "rules": {
       "businessName": "My Coffee Shop",
       "businessHours": "Mon-Fri 9AM-6PM",
@@ -159,15 +235,22 @@ curl -X POST http://localhost:3000/api/business \
     },
     "templates": {
       "priceList": "Coffee: $5, Tea: $3, Cake: $7"
+    },
+    "settings": {
+      "autoReplyComments": true
     }
   }'
 ```
 
 ## 📡 API Endpoints
 
-### Webhook
+### Webhooks
 - `GET /webhook` - WhatsApp webhook verification
 - `POST /webhook` - Receive WhatsApp messages
+- `GET /webhook/facebook` - Facebook webhook verification
+- `POST /webhook/facebook` - Receive Facebook Messenger messages and page comments
+- `GET /webhook/instagram` - Instagram webhook verification
+- `POST /webhook/instagram` - Receive Instagram Direct messages and comments
 
 ### Business Management
 - `POST /api/business` - Create new business
@@ -205,13 +288,43 @@ curl -X POST http://localhost:3000/api/business \
 - Verify you have credits in OpenAI account
 - Server will use fallback responses if AI fails
 
+**Facebook/Instagram Not Working:**
+- Ensure your Facebook Page is connected to the app
+- For Instagram, ensure your Instagram Business Account is connected to your Facebook Page
+- Verify page access token has the required permissions
+- Check that webhooks are subscribed to the correct fields
+- For Instagram DMs, ensure the Instagram account has Instagram Messaging API enabled
+- For comment auto-replies, ensure `settings.autoReplyComments` is set to `true` in the business config
+
+## 📱 Platform-Specific Notes
+
+### WhatsApp
+- Messages are sent via the WhatsApp Cloud API
+- Requires a verified WhatsApp Business Account
+- Phone numbers must be in international format (e.g., +1234567890)
+
+### Facebook Messenger
+- Uses the Facebook Send API for messaging
+- Supports text messages, attachments, and quick replies
+- Page must be published and have Messenger enabled
+- Comments on page posts can trigger auto-replies
+
+### Instagram
+- Uses the Instagram Messaging API (requires Instagram Business Account)
+- Direct messages work similarly to Facebook Messenger
+- Comment replies are posted publicly on the post
+- Story mentions and replies can be detected but require custom handling
+
 ## 📝 Next Steps
 
 1. ✅ Deploy backend to cloud platform
 2. ✅ Configure WhatsApp webhook with public URL
-3. ✅ Get OpenAI API key for AI responses
-4. ✅ Build Flutter admin dashboard
-5. ✅ Test end-to-end message flow
+3. ✅ Configure Facebook webhook with public URL
+4. ✅ Configure Instagram webhook with public URL
+5. ✅ Get OpenAI API key for AI responses
+6. ✅ Build Flutter admin dashboard
+7. ✅ Test end-to-end message flow on all platforms
+8. 🔜 Add TikTok integration (coming soon)
 
 ## 📞 Support
 

@@ -4,6 +4,8 @@ import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import whatsappRoutes from './routes/whatsapp.routes.js';
+import facebookRoutes from './routes/facebook.routes.js';
+import instagramRoutes from './routes/instagram.routes.js';
 import businessRoutes from './routes/business.routes.js';
 import { initializeFirebase } from './config/firebase.config.js';
 import { logger } from './utils/logger.js';
@@ -44,6 +46,8 @@ app.get('/health', (req, res) => {
 
 // Routes
 app.use('/webhook', whatsappRoutes);
+app.use('/webhook/facebook', facebookRoutes);
+app.use('/webhook/instagram', instagramRoutes);
 app.use('/api/business', businessRoutes);
 
 // 404 handler
@@ -64,6 +68,8 @@ app.use((err, req, res, next) => {
 app.listen(PORT, () => {
   logger.info(`🚀 BizReply Backend Server running on port ${PORT}`);
   logger.info(`📱 WhatsApp webhook endpoint: http://localhost:${PORT}/webhook`);
+  logger.info(`📘 Facebook webhook endpoint: http://localhost:${PORT}/webhook/facebook`);
+  logger.info(`📸 Instagram webhook endpoint: http://localhost:${PORT}/webhook/instagram`);
   logger.info(`🏥 Health check: http://localhost:${PORT}/health`);
 });
 
